@@ -3,6 +3,9 @@ import { REBUILD_STAGES } from '../data/rebuildStagesData';
 import { RequirementsMatrixInteractive } from './rebuild/RequirementsMatrixInteractive';
 import { LegalPrecedentsInteractive } from './rebuild/LegalPrecedentsInteractive';
 import { ScrumCockpitInteractive } from './rebuild/ScrumCockpitInteractive';
+import { TechScoutingInteractive } from './rebuild/TechScoutingInteractive';
+import { HexagonalPortsInteractive } from './rebuild/HexagonalPortsInteractive';
+import { DataTopologyInteractive } from './rebuild/DataTopologyInteractive';
 import { ChevronLeft, ChevronRight, Eye, ShieldCheck, Flame, Scale } from 'lucide-react';
 import { playHapticClick, playSlideSwoosh } from '../utils/soundEffects';
 
@@ -47,6 +50,12 @@ export const RebuildStagesView: React.FC<Props> = ({ lang = 'en' }) => {
         return <LegalPrecedentsInteractive lang={lang} />;
       case 'scrum-cockpit':
         return <ScrumCockpitInteractive lang={lang} />;
+      case 'tech-scout':
+        return <TechScoutingInteractive lang={lang} />;
+      case 'hexagonal-ports':
+        return <HexagonalPortsInteractive lang={lang} />;
+      case 'data-topology':
+        return <DataTopologyInteractive lang={lang} />;
       default:
         return null;
     }
