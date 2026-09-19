@@ -6,6 +6,8 @@ import { ScrumCockpitInteractive } from './rebuild/ScrumCockpitInteractive';
 import { TechScoutingInteractive } from './rebuild/TechScoutingInteractive';
 import { HexagonalPortsInteractive } from './rebuild/HexagonalPortsInteractive';
 import { DataTopologyInteractive } from './rebuild/DataTopologyInteractive';
+import { ProjectTreeInteractive } from './rebuild/ProjectTreeInteractive';
+import { DevOpsPipelineInteractive } from './rebuild/DevOpsPipelineInteractive';
 import { ChevronLeft, ChevronRight, Eye, ShieldCheck, Flame, Scale } from 'lucide-react';
 import { playHapticClick, playSlideSwoosh } from '../utils/soundEffects';
 
@@ -56,6 +58,10 @@ export const RebuildStagesView: React.FC<Props> = ({ lang = 'en' }) => {
         return <HexagonalPortsInteractive lang={lang} />;
       case 'data-topology':
         return <DataTopologyInteractive lang={lang} />;
+      case 'project-tree':
+        return <ProjectTreeInteractive lang={lang} />;
+      case 'devops-pipeline':
+        return <DevOpsPipelineInteractive lang={lang} />;
       default:
         return null;
     }

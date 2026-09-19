@@ -54,6 +54,24 @@ export interface DatabaseTableDefinition {
   invariants: string[];
 }
 
+export interface FileInventoryItem {
+  path: string;
+  category: 'Root Module' | 'Agent Package' | 'UI Package' | 'Evaluation' | 'Tests';
+  purpose: string;
+  keyFunctionsOrClasses: string[];
+  linesOfCode: string;
+}
+
+export interface TestingPyramidTier {
+  tierNumber: number;
+  name: string;
+  scope: string;
+  testCount: string;
+  speed: string;
+  tooling: string;
+  passCriteria: string;
+}
+
 export interface RebuildStage {
   stageNumber: number;
   id: string;
@@ -69,7 +87,7 @@ export interface RebuildStage {
   coreProblem: string;
   solutionArchitecture: string;
   checkableFacts: Array<{ label: string; value: string; proofFileOrSource: string }>;
-  interactiveComponentId: 'requirements-matrix' | 'legal-precedents' | 'scrum-cockpit' | 'tech-scout' | 'hexagonal-ports' | 'data-topology' | 'generic';
+  interactiveComponentId: 'requirements-matrix' | 'legal-precedents' | 'scrum-cockpit' | 'tech-scout' | 'hexagonal-ports' | 'data-topology' | 'project-tree' | 'devops-pipeline' | 'generic';
 }
 
 export const FUNCTIONAL_REQUIREMENTS: FunctionalRequirement[] = [
@@ -487,6 +505,253 @@ export const DATABASE_TABLES_DATA: DatabaseTableDefinition[] = [
   },
 ];
 
+export const PROJECT_FILE_INVENTORY: FileInventoryItem[] = [
+  // Root Modules
+  {
+    path: 'app.py',
+    category: 'Root Module',
+    purpose: 'Main entry point: FastAPI application instance, lifespan startup/shutdown hooks, and route mounting.',
+    keyFunctionsOrClasses: ['create_app()', 'lifespan()', 'Runtime', 'healthz_endpoint()'],
+    linesOfCode: '315 lines',
+  },
+  {
+    path: 'config.py',
+    category: 'Root Module',
+    purpose: 'Fail-fast configuration management backed by Pydantic BaseSettings; parses environment variables.',
+    keyFunctionsOrClasses: ['Settings', 'get_settings()', 'AuthMode', 'ModelMode'],
+    linesOfCode: '185 lines',
+  },
+  {
+    path: 'conversion.py',
+    category: 'Root Module',
+    purpose: 'Document conversion ladder extracting clean UTF-8 text from PDFs, scans (via Tesseract OCR), and DOCX.',
+    keyFunctionsOrClasses: ['convert_to_markdown()', 'extract_pdf_text()', 'ocr_scanned_page()'],
+    linesOfCode: '420 lines',
+  },
+  {
+    path: 'chunking.py',
+    category: 'Root Module',
+    purpose: 'Semantic hierarchical chunker generating 200-token child search targets and 1,000-token parent sections.',
+    keyFunctionsOrClasses: ['chunk_document()', 'ParentSection', 'Child', 'derive_chunk_id()'],
+    linesOfCode: '360 lines',
+  },
+  {
+    path: 'change_detection.py',
+    category: 'Root Module',
+    purpose: 'SHA-256 4-state difference detector (NEW, UNCHANGED, MODIFIED, ORPHAN) avoiding redundant re-embeddings.',
+    keyFunctionsOrClasses: ['compute_sha256()', 'detect_changes()', 'DocumentState'],
+    linesOfCode: '240 lines',
+  },
+  {
+    path: 'vector_store.py',
+    category: 'Root Module',
+    purpose: 'Qdrant vector engine adapter managing isolated workspace collections (ws_<id>_children) and HNSW graphs.',
+    keyFunctionsOrClasses: ['open_store()', 'search()', 'upsert_points()', 'SearchHit'],
+    linesOfCode: '634 lines',
+  },
+  {
+    path: 'parent_store.py',
+    category: 'Root Module',
+    purpose: 'Filesystem disk store persisting complete 1,000-token parent sections keyed by parent_id.',
+    keyFunctionsOrClasses: ['save_parents()', 'get_parent_text()', 'delete_parents()'],
+    linesOfCode: '180 lines',
+  },
+  {
+    path: 'sync.py',
+    category: 'Root Module',
+    purpose: 'Asynchronous document sync driver orchestrating conversion, hashing, chunking, and storage pipelines.',
+    keyFunctionsOrClasses: ['sync_workspace()', 'run_sync_item()', 'SingleFlightMutex'],
+    linesOfCode: '520 lines',
+  },
+  {
+    path: 'recovery.py',
+    category: 'Root Module',
+    purpose: 'Self-healing recovery scanner resetting abandoned PROCESSING tasks on server startup.',
+    keyFunctionsOrClasses: ['recover_abandoned_jobs()', 'cleanup_orphans()'],
+    linesOfCode: '165 lines',
+  },
+  {
+    path: 'workspaces.py',
+    category: 'Root Module',
+    purpose: 'Multi-tenant directory resolution and folder authorization checking for workspace boundaries.',
+    keyFunctionsOrClasses: ['resolve_workspace_path()', 'validate_workspace_access()'],
+    linesOfCode: '210 lines',
+  },
+
+  // Agent Package
+  {
+    path: 'agent/graph.py',
+    category: 'Agent Package',
+    purpose: 'LangGraph cyclic state machine assembly connecting the 9 pure nodes with conditional edges and retry limits.',
+    keyFunctionsOrClasses: ['build_graph()', 'route_after_grading()', 'route_after_rewrite()'],
+    linesOfCode: '290 lines',
+  },
+  {
+    path: 'agent/state.py',
+    category: 'Agent Package',
+    purpose: 'Immutable TypedDict schemas (SanadAgentState, SessionMemory) holding conversation flow data without side-effects.',
+    keyFunctionsOrClasses: ['SanadAgentState', 'SessionMemory', 'AgentOutput'],
+    linesOfCode: '140 lines',
+  },
+  {
+    path: 'agent/nodes.py',
+    category: 'Agent Package',
+    purpose: 'The 9 deterministic pure worker nodes executing retrieval, grading, rewriting, synthesis, and hallucination checks.',
+    keyFunctionsOrClasses: ['retrieve_node()', 'grade_documents_node()', 'rewrite_query_node()', 'generate_node()'],
+    linesOfCode: '480 lines',
+  },
+  {
+    path: 'agent/prompts.py',
+    category: 'Agent Package',
+    purpose: 'Versioned prompt catalog formatting system instructions for legal citation, grading, and query rewriting.',
+    keyFunctionsOrClasses: ['SYSTEM_PROMPT_LEGAL', 'GRADER_PROMPT', 'REWRITE_PROMPT'],
+    linesOfCode: '260 lines',
+  },
+  {
+    path: 'agent/retrieval.py',
+    category: 'Agent Package',
+    purpose: 'Hybrid search fusion algorithm combining Qdrant dense vector hits and BM25 sparse hits via RRF k=60.',
+    keyFunctionsOrClasses: ['hybrid_search()', 'reciprocal_rank_fusion()'],
+    linesOfCode: '220 lines',
+  },
+  {
+    path: 'agent/grading.py',
+    category: 'Agent Package',
+    purpose: 'Binary relevance grader evaluating whether retrieved passages genuinely address the user inquiry.',
+    keyFunctionsOrClasses: ['grade_passage_relevance()', 'filter_irrelevant_chunks()'],
+    linesOfCode: '190 lines',
+  },
+  {
+    path: 'agent/answering.py',
+    category: 'Agent Package',
+    purpose: 'Final synthesis generator assembling citation-backed markdown answers and enforcing honest refusals (F-05).',
+    keyFunctionsOrClasses: ['synthesize_answer()', 'build_evidence_card()', 'format_refusal()'],
+    linesOfCode: '310 lines',
+  },
+  {
+    path: 'agent/trace.py',
+    category: 'Agent Package',
+    purpose: 'Execution tracer recording node latencies, token consumption, and graph routing decisions for auditing.',
+    keyFunctionsOrClasses: ['AgentTrace', 'record_node_execution()', 'export_trace_json()'],
+    linesOfCode: '175 lines',
+  },
+
+  // UI Package
+  {
+    path: 'ui/screen.py',
+    category: 'UI Package',
+    purpose: 'FastAPI Jinja2 template renderer serving desktop-first dual-pane HTML layouts in sub-50ms.',
+    keyFunctionsOrClasses: ['render_workspace_screen()', 'render_chat_screen()'],
+    linesOfCode: '340 lines',
+  },
+  {
+    path: 'ui/conversation.py',
+    category: 'UI Package',
+    purpose: 'Session state coordinator managing sliding message history, SSE token streaming, and user interactions.',
+    keyFunctionsOrClasses: ['Conversation', 'stream_agent_response()', 'Message'],
+    linesOfCode: '410 lines',
+  },
+  {
+    path: 'ui/documents.py',
+    category: 'UI Package',
+    purpose: 'Document polling telemetry endpoints broadcasting ingestion progress and conversion status.',
+    keyFunctionsOrClasses: ['get_document_status()', 'trigger_background_sync()'],
+    linesOfCode: '230 lines',
+  },
+  {
+    path: 'ui/auth.py',
+    category: 'UI Package',
+    purpose: 'Security gateway encrypting session cookies with AES-GCM-256 and enforcing Keycloak RBAC roles.',
+    keyFunctionsOrClasses: ['encrypt_session_cookie()', 'decrypt_session_cookie()', 'require_role()'],
+    linesOfCode: '280 lines',
+  },
+  {
+    path: 'ui/reports_screen.py',
+    category: 'UI Package',
+    purpose: 'Printable HTML and PDF audit transcript generator compiling court-ready evidence records.',
+    keyFunctionsOrClasses: ['generate_audit_report()', 'render_report_pdf()'],
+    linesOfCode: '250 lines',
+  },
+
+  // Evaluation Package
+  {
+    path: 'evaluation/runner.py',
+    category: 'Evaluation',
+    purpose: 'CLI benchmark orchestrator executing test questions against workspaces and measuring performance.',
+    keyFunctionsOrClasses: ['run_evaluation_suite()', 'aggregate_metrics()'],
+    linesOfCode: '310 lines',
+  },
+  {
+    path: 'evaluation/scoring.py',
+    category: 'Evaluation',
+    purpose: 'RAGAS triad scoring calculator computing Faithfulness, Answer Relevance, and Context Precision.',
+    keyFunctionsOrClasses: ['calculate_faithfulness()', 'calculate_answer_relevance()'],
+    linesOfCode: '240 lines',
+  },
+  {
+    path: 'evaluation/golden.py',
+    category: 'Evaluation',
+    purpose: 'Dataset parser loading the 60-question frozen golden benchmark with verified ground truth citations.',
+    keyFunctionsOrClasses: ['load_golden_set()', 'GoldenQuestion'],
+    linesOfCode: '180 lines',
+  },
+  {
+    path: 'evaluation/gate.py',
+    category: 'Evaluation',
+    purpose: 'Automated release gate bouncer checking benchmark thresholds (G1 >= 0.90, G2 = 100%) before deployment.',
+    keyFunctionsOrClasses: ['evaluate_release_gates()', 'assert_gate_thresholds()'],
+    linesOfCode: '215 lines',
+  },
+
+  // Tests
+  {
+    path: 'tests/ (1,377 tests)',
+    category: 'Tests',
+    purpose: 'Comprehensive 4-tier testing pyramid: unit tests with pure mocks, integration tests with live databases, and security scans.',
+    keyFunctionsOrClasses: ['tests/unit/ (1,200+ tests)', 'tests/integration/ (100+ tests)', 'tests/conftest.py'],
+    linesOfCode: '14,500 lines',
+  },
+];
+
+export const TESTING_PYRAMID_TIERS: TestingPyramidTier[] = [
+  {
+    tierNumber: 1,
+    name: 'Tier 1: Fast Unit Tests',
+    scope: 'Pure hexagonal ports, chunking algorithms, SHA-256 state transitions, prompt formatting, and graph nodes.',
+    testCount: '1,200+ tests',
+    speed: '<0.8 seconds total',
+    tooling: 'pytest, unittest.mock, in-memory fake encoders',
+    passCriteria: '100% pass rate required on every commit and PR gate.',
+  },
+  {
+    tierNumber: 2,
+    name: 'Tier 2: Integration Tests',
+    scope: 'Live SQLite WAL transactions, real Qdrant embedded collections, multi-turn chat sessions, and background workers.',
+    testCount: '120+ tests',
+    speed: '<8.5 seconds',
+    tooling: 'pytest-asyncio, tempfile SQLite databases, live Qdrant test stores',
+    passCriteria: 'Zero database locks (database is locked), zero orphan chunks, valid foreign key cascades.',
+  },
+  {
+    tierNumber: 3,
+    name: 'Tier 3: Security & Compliance Audits',
+    scope: 'Gitleaks secret detection, Bandit AST static analysis, Path traversal injections, BOLA silent 404 tests, Law 09-08 PII scrub.',
+    testCount: '35+ tests',
+    speed: '<4.0 seconds',
+    tooling: 'gitleaks-action, bandit, custom security assertions in test_s6_auth.py',
+    passCriteria: 'Zero critical/high vulnerabilities; 100% of unauthorized cross-tenant requests return silent 404.',
+  },
+  {
+    tierNumber: 4,
+    name: 'Tier 4: RAGAS Golden Benchmark Release Gate',
+    scope: '60-question frozen golden dataset covering Moroccan Labor Code (Dahir 1-03-194). Evaluates Faithfulness, Relevance, and Refusal.',
+    testCount: '60 comprehensive cases',
+    speed: '~45 seconds (workflow_dispatch)',
+    tooling: 'scripts/run_evaluation.py, scripts/release_gate.py',
+    passCriteria: 'Gate 1: Faithfulness >= 0.90; Gate 2: 100% refusal pass rate on out-of-scope questions.',
+  },
+];
+
 export const REBUILD_STAGES: RebuildStage[] = [
   // STAGE 1: The Client Request
   {
@@ -630,5 +895,53 @@ export const REBUILD_STAGES: RebuildStage[] = [
       { label: 'HNSW Graph Topology', value: 'M=16, ef_construct=100, Cosine distance metric', proofFileOrSource: 'vector_store.py: open_store()' },
     ],
     interactiveComponentId: 'data-topology',
+  },
+
+  // STAGE 7: Project File Structure
+  {
+    stageNumber: 7,
+    id: 'stage-7',
+    title: 'Project Layout & Complete File Inventory',
+    subtitle: 'Architectural Tour of the 28 Production Modules and 1,377 Automated Tests',
+    phase: 'Infrastructure',
+    librarianAnalogy: {
+      story: 'The grand blueprint of the library building: exactly where the loading dock sits, where the card drawers are located, which study rooms communicate with the head librarian, and where the security guards inspect visitor credentials before anyone enters the stacks.',
+      mapping: 'Loading dock = root conversion.py & sync.py. Card drawers = vector_store.py & parent_store.py. Study rooms = agent/ package. Public desks = ui/ package. Security guards = ui/auth.py & tests/.',
+      boundary: 'A messy library with unlabelled rooms loses books; every file in Sanad has an isolated single responsibility and a dedicated automated test suite.',
+    },
+    executiveContext: 'Sanad avoids sprawling monoliths by structuring its 28 core Python modules into cohesive, decoupled packages: root service drivers, the agent reasoning package, the server-rendered user interface, and the automated evaluation suite. The entire architecture is guarded by 1,377 automated tests.',
+    coreProblem: 'Unstructured codebases accumulate circular dependencies, hidden global side-effects, and untestable spaghetti logic. When a developer modifies an ingestion regex, chat history silently breaks because modules import each other across arbitrary boundaries.',
+    solutionArchitecture: 'Strict modular encapsulation: root drivers handle IO and persistence; agent/ handles pure reasoning through state dicts without importing UI logic; ui/ consumes agent ports via dependency injection; evaluation/ runs independently via CLI; and tests/ mirrors the exact package hierarchy with 1,377 unit and integration tests.',
+    checkableFacts: [
+      { label: 'Total Test Count', value: '1,377 tests across unit/ and integration/', proofFileOrSource: 'tests/' },
+      { label: 'Core Production Modules', value: '28 specialized Python modules across 4 packages', proofFileOrSource: 'pyproject.toml' },
+      { label: 'Longest Module', value: 'vector_store.py (634 lines, thoroughly typed and guarded)', proofFileOrSource: 'vector_store.py' },
+      { label: 'Shortest Seam', value: 'agent/state.py (140 lines, pure TypedDict definitions)', proofFileOrSource: 'agent/state.py' },
+    ],
+    interactiveComponentId: 'project-tree',
+  },
+
+  // STAGE 8: DevOps, Docker, CI/CD & Testing Hierarchy
+  {
+    stageNumber: 8,
+    id: 'stage-8',
+    title: 'DevOps, Multi-Stage Docker, CI/CD & Testing Hierarchy',
+    subtitle: 'Astral uv Packaging, PyTorch CPU Pruning (6GB down to 450MB) & The 4-Tier Testing Pyramid',
+    phase: 'Infrastructure',
+    librarianAnalogy: {
+      story: 'Packing an expedition van: instead of loading a 6-ton hydraulic lift designed for deep coal mines that cannot run without high-voltage industrial power (CUDA GPU wheels), we pack a precision lightweight hand-winch that runs everywhere on plain muscle (PyTorch CPU). The van weighs 450kg instead of 6,000kg and arrives in 2 minutes instead of 3 hours.',
+      mapping: '6-ton lift = 6GB CUDA PyTorch runtime. Lightweight winch = 450MB CPU PyTorch pinned to uv.lock. The van = Multi-stage Docker image.',
+      boundary: 'CPU execution is slightly slower for batch training, but for inference of 1024-d embeddings it responds in 180ms, well under the 500ms human perception threshold.',
+    },
+    executiveContext: 'Deploying deep learning systems to cost-effective cloud servers (like Railway 2 vCPU instances) requires ruthless dependency pruning. The default sentence-transformers install pulls GPU CUDA runtimes that balloon images to 6 GB, causing build timeouts (9,936 seconds / 2h 46m) and out-of-memory crashes.',
+    coreProblem: 'Installing PyTorch from PyPI downloads gigabytes of unreachable NVIDIA libraries. Adding a CPU wheel in a later Docker layer does not reduce image size because layers only accumulate. Furthermore, Railway rejects Dockerfiles containing VOLUME instructions with build scheduling errors.',
+    solutionArchitecture: 'Multi-stage Dockerfile: builder stage exports a frozen uv.lock requirement file, strips nvidia-* and triton rows, and installs pinned CPU-only PyTorch from download.pytorch.org/whl/cpu. The runtime stage copies only the clean venv, running under unprivileged user sanad:sanad (UID 10001) without VOLUME directives. The GitHub Actions pipeline enforces gate.yml and eval.yml across the 4-Tier Testing Pyramid.',
+    checkableFacts: [
+      { label: 'Image Size Reduction', value: '6 GB down to 450 MB (92% reduction)', proofFileOrSource: 'Dockerfile' },
+      { label: 'Historical Build Timeout', value: '9,936s (2h 46m) reduced to <120 seconds', proofFileOrSource: 'Dockerfile lines 22-25' },
+      { label: 'Unprivileged User', value: 'sanad:sanad (UID 10001, non-root execution)', proofFileOrSource: 'Dockerfile lines 206-208' },
+      { label: 'Testing Pyramid', value: '4 Tiers (1,200+ unit, 120+ integration, 35+ security, 60 golden RAGAS)', proofFileOrSource: '.github/workflows/gate.yml' },
+    ],
+    interactiveComponentId: 'devops-pipeline',
   },
 ];
