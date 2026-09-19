@@ -108,11 +108,61 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   }, [lessonId, slideAudioKey, lang]);
 
   // Reset audio state when lessonId, slideAudioKey, or language changes
+  const [usingSpeechSynthesis, setUsingSpeechSynthesis] = useState(false);
+
+  const speakWithSynthesis = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(script);
+    utterance.lang = lang === 'fr' ? 'fr-FR' : 'en-US';
+    utterance.rate = speed;
+
+    const voices = window.speechSynthesis.getVoices();
+    const targetLang = lang === 'fr' ? 'fr' : 'en';
+    const voice = voices.find((v) => v.lang.startsWith(targetLang));
+    if (voice) utterance.voice = voice;
+
+    utterance.onstart = () => {
+      setUsingSpeechSynthesis(true);
+      setIsPlaying(true);
+      if (onProgressUpdateRef.current) onProgressUpdateRef.current(0, true);
+    };
+
+    utterance.onboundary = (e) => {
+      if (e.charIndex && script.length > 0) {
+        const ratio = e.charIndex / script.length;
+        const estDuration = sentences.length * 3.5;
+        setCurrentTime(ratio * estDuration);
+        setDuration(estDuration);
+        setActiveSentenceIndex(Math.min(sentences.length - 1, Math.floor(ratio * sentences.length)));
+        if (onProgressUpdateRef.current) onProgressUpdateRef.current(ratio, true);
+      }
+    };
+
+    utterance.onend = () => {
+      setUsingSpeechSynthesis(false);
+      setIsPlaying(false);
+      if (onProgressUpdateRef.current) onProgressUpdateRef.current(1, false);
+      if (onEndedRef.current) onEndedRef.current();
+    };
+
+    utterance.onerror = () => {
+      setUsingSpeechSynthesis(false);
+      setIsPlaying(false);
+    };
+
+    window.speechSynthesis.speak(utterance);
+  };
+
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setUsingSpeechSynthesis(false);
     setIsPlaying(false);
     setCurrentTime(0);
     setActiveSentenceIndex(0);
@@ -123,13 +173,42 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   // Auto-play when advancing slides if autoPlay is enabled
   useEffect(() => {
-    if (autoPlay && audioRef.current) {
-      audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+    if (autoPlay) {
+      if (audioRef.current) {
+        audioRef.current
+          .play()
+          .then(() => setIsPlaying(true))
+          .catch(() => {
+            speakWithSynthesis();
+          });
+      } else {
+        speakWithSynthesis();
+      }
     }
   }, [autoPlay, activeAudioSrc]);
 
   const togglePlay = () => {
-    if (!audioRef.current) return;
+    if (usingSpeechSynthesis && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      if (isPlaying) {
+        window.speechSynthesis.pause();
+        setIsPlaying(false);
+        if (onProgressUpdateRef.current) onProgressUpdateRef.current(currentTime / (duration || 1), false);
+      } else {
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+          setIsPlaying(true);
+          if (onProgressUpdateRef.current) onProgressUpdateRef.current(currentTime / (duration || 1), true);
+        } else {
+          speakWithSynthesis();
+        }
+      }
+      return;
+    }
+
+    if (!audioRef.current) {
+      speakWithSynthesis();
+      return;
+    }
 
     if (isPlaying) {
       audioRef.current.pause();
@@ -146,8 +225,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             onProgressUpdateRef.current(currentTime / (duration || 1), true);
           }
         })
-        .catch((err) => {
-          console.warn('Audio play error:', err);
+        .catch(() => {
+          speakWithSynthesis();
         });
     }
   };
