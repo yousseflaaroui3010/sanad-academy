@@ -8,6 +8,7 @@ import { HexagonalPortsInteractive } from './rebuild/HexagonalPortsInteractive';
 import { DataTopologyInteractive } from './rebuild/DataTopologyInteractive';
 import { ProjectTreeInteractive } from './rebuild/ProjectTreeInteractive';
 import { DevOpsPipelineInteractive } from './rebuild/DevOpsPipelineInteractive';
+import { SplitScreenCodeStudio } from './rebuild/SplitScreenCodeStudio';
 import { ChevronLeft, ChevronRight, Eye, ShieldCheck, Flame, Scale } from 'lucide-react';
 import { playHapticClick, playSlideSwoosh } from '../utils/soundEffects';
 
@@ -62,6 +63,8 @@ export const RebuildStagesView: React.FC<Props> = ({ lang = 'en' }) => {
         return <ProjectTreeInteractive lang={lang} />;
       case 'devops-pipeline':
         return <DevOpsPipelineInteractive lang={lang} />;
+      case 'split-code':
+        return <SplitScreenCodeStudio lang={lang} />;
       default:
         return null;
     }

@@ -87,7 +87,7 @@ export interface RebuildStage {
   coreProblem: string;
   solutionArchitecture: string;
   checkableFacts: Array<{ label: string; value: string; proofFileOrSource: string }>;
-  interactiveComponentId: 'requirements-matrix' | 'legal-precedents' | 'scrum-cockpit' | 'tech-scout' | 'hexagonal-ports' | 'data-topology' | 'project-tree' | 'devops-pipeline' | 'generic';
+  interactiveComponentId: 'requirements-matrix' | 'legal-precedents' | 'scrum-cockpit' | 'tech-scout' | 'hexagonal-ports' | 'data-topology' | 'project-tree' | 'devops-pipeline' | 'split-code' | 'generic';
 }
 
 export const FUNCTIONAL_REQUIREMENTS: FunctionalRequirement[] = [
@@ -943,5 +943,29 @@ export const REBUILD_STAGES: RebuildStage[] = [
       { label: 'Testing Pyramid', value: '4 Tiers (1,200+ unit, 120+ integration, 35+ security, 60 golden RAGAS)', proofFileOrSource: '.github/workflows/gate.yml' },
     ],
     interactiveComponentId: 'devops-pipeline',
+  },
+
+  // STAGE 9: Split-Screen Code Walkthrough Studio & Blast Radius Graph
+  {
+    stageNumber: 9,
+    id: 'stage-9',
+    title: 'Split-Screen Code Walkthrough Studio & Blast Radius Graph',
+    subtitle: 'Step-by-Step Logic Inspection with Dynamic Dimming and Downstream Fallout Mapping',
+    phase: 'Code Studio',
+    librarianAnalogy: {
+      story: 'The head archivist takes a magnifying glass and walks a new apprentice through the master catalog desk line by line. As the archivist explains one specific drawer, the rest of the room dims into shadow so the apprentice sees only the exact mechanism being handled, while a string map on the wall shows which rooms will collapse if that drawer is altered.',
+      mapping: 'Magnifying glass = Neon code highlight. Dimmed room = 25% opacity surrounding code. String map = Blast Radius Dependency Graph.',
+      boundary: 'A physical library has loose human connections; in code, every import statement and state key is an enforceable mathematical dependency.',
+    },
+    executiveContext: 'Reading raw code without architecture context creates cognitive overload for junior engineers and academic reviewers. This studio provides a synchronized split-screen: the left pane highlights the active logical block while dimming the rest of the file to 25% opacity; the right pane breaks down the logic in plain language, exposes the failure mode prevented, and graphs the downstream blast radius.',
+    coreProblem: 'Codebases are inherently interconnected. When a junior developer edits a return type in agent/nodes.py without understanding its blast radius, downstream components in ui/screen.py and evaluation/runner.py crash with silent attribute errors or missing citations.',
+    solutionArchitecture: 'Interactive Split-Screen Code Studio: full syntax-highlighted code with neon active blocks, plain-language line breakdowns, variables and types analysis, and an interactive Blast Radius Graph mapping upstream callers, direct dependencies, downstream dependents, and validating tests.',
+    checkableFacts: [
+      { label: 'Modules Analyzed', value: 'agent/nodes.py, agent/graph.py, sync.py', proofFileOrSource: 'RAG_project_ENSA' },
+      { label: 'Blast Radius Mapping', value: 'Upstream callers, dependencies & downstream fallout', proofFileOrSource: 'agent/ports.py' },
+      { label: 'State Invariant', value: 'Pure partial dict updates (zero in-place state mutation)', proofFileOrSource: 'agent/state.py' },
+      { label: 'Trace Invariant', value: 'Every node records at least 1 StepKind trace entry', proofFileOrSource: 'agent/trace.py' },
+    ],
+    interactiveComponentId: 'split-code',
   },
 ];
