@@ -1,0 +1,16 @@
+{
+  "name": "Sanad Academy — Master Real-World Document AI Engineering",
+  "short_name": "Sanad",
+  "description": "Master enterprise RAG, LangGraph workflows, and zero-trust document retrieval architecture with ADHD-friendly micro-lessons and studio audio.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f5f7",
+  "theme_color": "#f5f5f7",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
