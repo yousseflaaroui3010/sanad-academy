@@ -108,7 +108,7 @@ export interface RebuildStage {
   coreProblem: string;
   solutionArchitecture: string;
   checkableFacts: Array<{ label: string; value: string; proofFileOrSource: string }>;
-  interactiveComponentId: 'requirements-matrix' | 'legal-precedents' | 'scrum-cockpit' | 'tech-scout' | 'hexagonal-ports' | 'data-topology' | 'project-tree' | 'devops-pipeline' | 'split-code' | 'git-workflow' | 'incidents' | 'adr-browser' | 'generic';
+  interactiveComponentId: 'requirements-matrix' | 'legal-precedents' | 'scrum-cockpit' | 'tech-scout' | 'hexagonal-ports' | 'data-topology' | 'project-tree' | 'devops-pipeline' | 'split-code' | 'git-workflow' | 'incidents' | 'adr-browser' | 'cloud-deploy' | 'golden-benchmark' | 'monitoring-trace' | 'defense-readiness' | 'generic';
 }
 
 export const FUNCTIONAL_REQUIREMENTS: FunctionalRequirement[] = [
@@ -1312,5 +1312,101 @@ export const REBUILD_STAGES: RebuildStage[] = [
       { label: 'Verification', value: 'Every ADR links directly to an automated test file or benchmark report', proofFileOrSource: 'tests/unit/' },
     ],
     interactiveComponentId: 'adr-browser',
+  },
+
+  // STAGE 13: Railway Cloud Deployment
+  {
+    stageNumber: 13,
+    id: 'stage-13',
+    title: 'Railway Cloud Deployment & Fail-Fast Boot',
+    subtitle: 'Non-Root Execution, /app/data Persistent Mounts, Sub-50ms /healthz & Pydantic Validation',
+    phase: 'Production',
+    librarianAnalogy: {
+      story: 'The library opens a branch in the royal castle. Instead of building stone walls on the castle balcony, they moor a transport carriage that plugs into the castle power socket ($PORT), attaches to an immovable steel anchor box bolted to the foundation (/app/data), and has a sentry who taps the door every minute (/healthz). If the key is missing from the lock at dawn, the sentry sounds the alarm and refuses to unlock the door.',
+      mapping: 'Transport carriage = Docker container. Steel anchor box = Railway persistent volume mount. Sentry tapping door = /healthz probe. Missing key alarm = Pydantic BaseSettings fail-fast exit 1.',
+      boundary: 'A carriage can be moved; in cloud infrastructure, if the volume is unattached, the database vanishes on every container redeployment.',
+    },
+    executiveContext: 'Production deployment to Railway cloud requires cloud-native resilience. Sanad runs under unprivileged user sanad:sanad (UID 10001), binds dynamically to $PORT, persists SQLite and Qdrant under /app/data, responds to /healthz probes within 50ms, and halts instantly at boot if any required environment variable is missing.',
+    coreProblem: 'Junior cloud deployments frequently crash due to ephemeral storage (losing entire document indexes on redeploy), sluggish health probes timing out during cold boot, or starting silently with missing secrets only to crash during a user query.',
+    solutionArchitecture: 'Production Railway configuration: persistent volume mount at /app/data, sub-50ms /healthz readiness/liveness probe, and Pydantic BaseSettings validation that asserts all environment keys on the first line of app.py execution.',
+    checkableFacts: [
+      { label: 'Port Invariant', value: 'Binds to 0.0.0.0:$PORT injected dynamically by Railway', proofFileOrSource: 'app.py' },
+      { label: 'Volume Persistence', value: '/app/data holds SQLite registry, Qdrant vectors & parent files', proofFileOrSource: 'Dockerfile line 271' },
+      { label: 'Health Probe Latency', value: '<50ms response verifying SQLite write & Qdrant ping', proofFileOrSource: 'app.py: /healthz' },
+      { label: 'Boot Invariant', value: 'Missing secret raises ValidationError with exit code 1 immediately', proofFileOrSource: 'config.py' },
+    ],
+    interactiveComponentId: 'cloud-deploy',
+  },
+
+  // STAGE 14: Quantitative Evaluations & The Golden Benchmark
+  {
+    stageNumber: 14,
+    id: 'stage-14',
+    title: 'Quantitative Evaluations & The Golden Benchmark',
+    subtitle: '60-Question Frozen Benchmark, RAGAS Triad (Faithfulness >= 0.90) & The Release Gate Bouncer',
+    phase: 'Production',
+    librarianAnalogy: {
+      story: 'The state licensing exam for court interpreters: exactly 60 official questions. 40 questions test real laws that the student must translate and point to in the book; 20 questions ask about fictional laws that the student MUST refuse to answer. If the student invents even one answer for the fictional laws, they fail the exam automatically.',
+      mapping: '60 questions = evaluation/golden.py frozen set. 40 real laws = in_scope questions. 20 fictional laws = out_of_scope questions. Automatic failure = Release Gate Bouncer (gate.py).',
+      boundary: 'Human examiners might give partial credit for good style; our release gate algorithm asserts zero tolerance for hallucinations.',
+    },
+    executiveContext: 'Sanad measures accuracy using an automated, quantitative evaluation framework rather than anecdotal testing. The 60-question frozen golden benchmark (evaluation/golden.py) evaluates 40 in-scope questions and 20 out-of-scope questions against the RAGAS triad.',
+    coreProblem: 'Subjective "looks good to me" testing guarantees regressions. A developer tweaks a prompt to solve one question, unknowingly causing hallucinations on 15 other questions. Without an automated gate, flawed releases reach production.',
+    solutionArchitecture: 'Automated evaluation runner (scripts/run_evaluation.py) and Release Gate Bouncer (scripts/release_gate.py) enforcing the three non-negotiable thresholds: Gate 1 (Faithfulness >= 0.90), Gate 2 (Refusal Pass Rate = 100%), and Gate 3 (Sources present on 100% of answers).',
+    checkableFacts: [
+      { label: 'Golden Corpus', value: '60 frozen questions (40 in-scope, 20 out-of-scope)', proofFileOrSource: 'evaluation/golden/' },
+      { label: 'Gate 1 Invariant', value: 'Faithfulness >= 0.90 across in-scope answers', proofFileOrSource: 'evaluation/gate.py' },
+      { label: 'Gate 2 Invariant', value: '100% refusal pass rate on out-of-scope questions', proofFileOrSource: 'evaluation/gate.py' },
+      { label: 'Gate 3 Invariant', value: '100% of answer rows carry verifiable source citations', proofFileOrSource: 'evaluation/gate.py' },
+    ],
+    interactiveComponentId: 'golden-benchmark',
+  },
+
+  // STAGE 15: Monitoring, Operational Tracing & User Feedback
+  {
+    stageNumber: 15,
+    id: 'stage-15',
+    title: 'Monitoring, Operational Tracing & User Feedback',
+    subtitle: 'In-Process Trace Collector (agent/trace.py), SQLite Audit Logs (p50/p95) & Idempotent Feedback',
+    phase: 'Production',
+    librarianAnalogy: {
+      story: 'The head librarian\'s ledger and visitor feedback box: every search is logged with the number of seconds spent and the drawers opened. Beside every answer slip given to a reader, a stamp allows them to check "Useful" or "Inaccurate". The head librarian reviews the box weekly to identify confusing questions.',
+      mapping: 'Search ledger = agent/trace.py. Drawer list = StepKind steps. Feedback box = answer_feedback table with idempotent UPSERT.',
+      boundary: 'Paper feedback slips can be lost or stuffed; SQLite answer_feedback enforces unique constraints on answer_key.',
+    },
+    executiveContext: 'Production observability must respect privacy and local execution constraints. Sanad implements in-process tracing without third-party SaaS dependencies, recording node-by-node execution timelines, token usage, latency percentiles, and user citation ratings.',
+    coreProblem: 'Third-party observability tools (Datadog, LangSmith) transmit user queries and legal context to external servers, violating data custody. Furthermore, loose logging creates performance bottlenecks and drifts from actual retry execution counts.',
+    solutionArchitecture: 'In-process trace collector in agent/trace.py: the trace IS the counter (no duplicate state). Every answer records step-by-step latency, touched files, and searches run. SQLite stores user feedback (answer_feedback) using idempotent UPSERTs on answer_key.',
+    checkableFacts: [
+      { label: 'Privacy Invariant', value: 'In-process tracing without external SaaS telemetry transmission', proofFileOrSource: 'agent/trace.py' },
+      { label: 'Trace Design Rule', value: 'The trace is the counter (retries derived from reword steps)', proofFileOrSource: 'agent/trace.py lines 8-11' },
+      { label: 'Latency Monitoring', value: 'p50 latency <2.0s, p95 latency <5.0s on 2 vCPU', proofFileOrSource: 'ui/screen.py' },
+      { label: 'Feedback Idempotency', value: 'UNIQUE(answer_key) constraint prevents duplicate ratings', proofFileOrSource: 'db/schema.sql' },
+    ],
+    interactiveComponentId: 'monitoring-trace',
+  },
+
+  // STAGE 16: Upgrades, Releases & Thesis Defense Readiness
+  {
+    stageNumber: 16,
+    id: 'stage-16',
+    title: 'Upgrades, Semantic Versioning & Thesis Defense Readiness',
+    subtitle: 'From v1.0.0 to v3.1.0: Prompt Registry SemVer, Zero-Downtime DB Evolution & Academic Defense Clearance',
+    phase: 'Production',
+    librarianAnalogy: {
+      story: 'The graduation day ceremony: The apprentices present the completed master archive to the university faculty. Every book has a version stamp, every shelf has a certificate of inspection, and when the professors inspect the system with surprise questions, the apprentices run the automated verification bouncer and demonstrate 100% green checkmarks.',
+      mapping: 'Version stamp = Semantic Versioning (v1.0.0 to v3.1.0). Certificate of inspection = Master Defense Certificate. Automated bouncer = release_gate.py.',
+      boundary: 'A student presentation relies on charisma; an engineering defense relies on mathematically checkable automated test gates.',
+    },
+    executiveContext: 'The culmination of the project: transitioning Sanad through 6 agile sprints into production release v3.1.0, backed by versioned prompt catalogs, zero-lock database migrations, and an automated thesis defense verification suite.',
+    coreProblem: 'Student engineering projects often collapse at the final demonstration: an untested schema migration breaks on the morning of the exam, or an unpinned prompt version produces wild hallucinations in front of the examination jury.',
+    solutionArchitecture: 'Strict SemVer progression (v1.0.0 foundational ingestion -> v3.1.0 production sovereign system). Prompts versioned under prompts/ with SemVer tags. The complete defense suite (1,377 tests, release_gate.py, OpenAPI drift check) executes cleanly to grant Academic Defense Clearance.',
+    checkableFacts: [
+      { label: 'Release Milestone', value: 'Production version v3.1.0 promoted with signed git tag', proofFileOrSource: 'pyproject.toml' },
+      { label: 'Prompt Provenance', value: 'All prompts versioned under prompts/ with SemVer tags', proofFileOrSource: 'prompts/' },
+      { label: 'Full Test Pyramid', value: '1,377 tests passing with exit code 0', proofFileOrSource: 'tests/' },
+      { label: 'Defense Readiness', value: '100% adherence to Moroccan Labor Code ground truth', proofFileOrSource: 'docs/defense/' },
+    ],
+    interactiveComponentId: 'defense-readiness',
   },
 ];

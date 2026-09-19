@@ -12,6 +12,10 @@ import { SplitScreenCodeStudio } from './rebuild/SplitScreenCodeStudio';
 import { GitWorkflowInteractive } from './rebuild/GitWorkflowInteractive';
 import { IncidentPostMortemInteractive } from './rebuild/IncidentPostMortemInteractive';
 import { AdrDecisionBrowserInteractive } from './rebuild/AdrDecisionBrowserInteractive';
+import { RailwayCloudDeploymentInteractive } from './rebuild/RailwayCloudDeploymentInteractive';
+import { GoldenBenchmarkRunnerInteractive } from './rebuild/GoldenBenchmarkRunnerInteractive';
+import { MonitoringTracingInteractive } from './rebuild/MonitoringTracingInteractive';
+import { ReleaseReadinessDefenseInteractive } from './rebuild/ReleaseReadinessDefenseInteractive';
 import { ChevronLeft, ChevronRight, Eye, ShieldCheck, Flame, Scale } from 'lucide-react';
 import { playHapticClick, playSlideSwoosh } from '../utils/soundEffects';
 
@@ -74,6 +78,14 @@ export const RebuildStagesView: React.FC<Props> = ({ lang = 'en' }) => {
         return <IncidentPostMortemInteractive lang={lang} />;
       case 'adr-browser':
         return <AdrDecisionBrowserInteractive lang={lang} />;
+      case 'cloud-deploy':
+        return <RailwayCloudDeploymentInteractive lang={lang} />;
+      case 'golden-benchmark':
+        return <GoldenBenchmarkRunnerInteractive lang={lang} />;
+      case 'monitoring-trace':
+        return <MonitoringTracingInteractive lang={lang} />;
+      case 'defense-readiness':
+        return <ReleaseReadinessDefenseInteractive lang={lang} />;
       default:
         return null;
     }
