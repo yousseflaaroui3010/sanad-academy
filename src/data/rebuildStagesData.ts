@@ -72,6 +72,27 @@ export interface TestingPyramidTier {
   passCriteria: string;
 }
 
+export interface RealIncident {
+  id: string;
+  title: string;
+  symptom: string;
+  rootCause: string;
+  disasterImpact: string;
+  seniorMitigation: string;
+  preventingTest: string;
+}
+
+export interface AdrRecord {
+  id: string; // ADR-001 to ADR-020
+  title: string;
+  category: 'Storage' | 'Agent' | 'Security' | 'UI' | 'Data';
+  context: string;
+  optionsConsidered: string[];
+  decision: string;
+  consequences: { positive: string; negative: string };
+  owner: 'YL' | 'MB' | 'YL + MB';
+}
+
 export interface RebuildStage {
   stageNumber: number;
   id: string;
@@ -87,7 +108,7 @@ export interface RebuildStage {
   coreProblem: string;
   solutionArchitecture: string;
   checkableFacts: Array<{ label: string; value: string; proofFileOrSource: string }>;
-  interactiveComponentId: 'requirements-matrix' | 'legal-precedents' | 'scrum-cockpit' | 'tech-scout' | 'hexagonal-ports' | 'data-topology' | 'project-tree' | 'devops-pipeline' | 'split-code' | 'generic';
+  interactiveComponentId: 'requirements-matrix' | 'legal-precedents' | 'scrum-cockpit' | 'tech-scout' | 'hexagonal-ports' | 'data-topology' | 'project-tree' | 'devops-pipeline' | 'split-code' | 'git-workflow' | 'incidents' | 'adr-browser' | 'generic';
 }
 
 export const FUNCTIONAL_REQUIREMENTS: FunctionalRequirement[] = [
@@ -752,6 +773,257 @@ export const TESTING_PYRAMID_TIERS: TestingPyramidTier[] = [
   },
 ];
 
+export const REAL_INCIDENTS_DATA: RealIncident[] = [
+  {
+    id: 'inc-01',
+    title: 'The SQLite Concurrency Trap (database is locked)',
+    symptom: 'sqlite3.OperationalError: database is locked thrown when users queried chat while document ingestion was running in the background.',
+    rootCause: 'Default SQLite rollback journal acquires an exclusive write lock on the entire database file during writes, immediately timing out concurrent reads.',
+    disasterImpact: 'Web server returned HTTP 500 Internal Server Errors on all user interactions whenever a 100-page document was being synced.',
+    seniorMitigation: 'Activated WAL mode (PRAGMA journal_mode = WAL) to allow unlimited concurrent readers alongside a writer, and configured PRAGMA busy_timeout = 5000.',
+    preventingTest: 'tests/unit/test_db_repo.py: test_wal_concurrency_under_load',
+  },
+  {
+    id: 'inc-02',
+    title: 'The Vector Dimension Mismatch (384d vs 1024d)',
+    symptom: 'ValueError: Vector size mismatch: expected 384, got 1024 raised during point upserts in Qdrant.',
+    rootCause: 'The Qdrant collection was created with 384 dimensions (default MiniLM size), but the project adopted multilingual-e5-base which produces 1024 dimensions.',
+    disasterImpact: 'Background ingestion crashed completely on the first batch upsert, leaving documents stuck in "processing" status indefinitely.',
+    seniorMitigation: 'Centralized vector dimensions in config.py (vector_dimensions: int = 1024) and asserted collection dimension compatibility at boot.',
+    preventingTest: 'tests/unit/test_vector_store.py: test_collection_dimension_matches_model',
+  },
+  {
+    id: 'inc-03',
+    title: 'The E5 Missing Prefix Disaster (30% Recall Drop)',
+    symptom: 'Cosine similarity scores plummeted by 30%, returning off-topic documents for clear legal inquiries.',
+    rootCause: 'multilingual-e5-base was trained asymmetrically: corpus passages require "passage: ", while queries require "query: ". A raw query without prefix falls outside the trained geometric space.',
+    disasterImpact: 'Benchmark faithfulness dropped from 91% down to 64%; searches for severance calculations failed to locate Article 53.',
+    seniorMitigation: 'Enforced automatic prefixing in embeddings.py: encode_query() automatically prepends "query: ", and encode_passage() prepends "passage: ".',
+    preventingTest: 'tests/unit/test_embeddings.py: test_e5_prefix_enforcement',
+  },
+  {
+    id: 'inc-04',
+    title: 'Out-of-Memory (OOM) on 50MB Scanned PDFs',
+    symptom: 'Container terminated abruptly with exit code 137 (OOMKilled) by the Linux kernel on Railway.',
+    rootCause: 'A 150-page scanned Dahir was loaded entirely into memory as uncompressed bitmap images for OCR, allocating 3.8GB RAM and exceeding the 4GB container limit.',
+    disasterImpact: 'Server crashed mid-sync, dropping all active user sessions and corrupting unfinalized ingestion task state.',
+    seniorMitigation: 'Implemented SingleFlightMutex restricting concurrent heavy ingestions to 1, coupled with page-by-page streaming in conversion.py that frees bitmaps immediately.',
+    preventingTest: 'tests/unit/test_conversion.py: test_streaming_page_extraction_memory_bound',
+  },
+  {
+    id: 'inc-05',
+    title: 'The BOLA Security Leak (HTTP 403 vs 404)',
+    symptom: 'Requesting /api/v1/workspaces/tenant-b/documents/contract_99.pdf from Tenant A\'s account returned HTTP 403 Forbidden.',
+    rootCause: 'The authorization middleware checked permissions after verifying the document\'s existence on disk, confirming to the attacker that the resource existed.',
+    disasterImpact: 'Attackers could automate ID enumeration to map out competitor file inventories and litigation activity.',
+    seniorMitigation: 'Silent 404 BOLA defense: every database query injects WHERE workspace_id = :current_workspace. Unauthorized requests return a silent HTTP 404 Not Found.',
+    preventingTest: 'tests/integration/test_s6_auth.py: test_bola_unauthorized_returns_404',
+  },
+];
+
+export const ADR_RECORDS_DATA: AdrRecord[] = [
+  {
+    id: 'ADR-001',
+    title: 'Hexagonal Ports Architecture',
+    category: 'Agent',
+    context: 'Core legal reasoning logic must be protected from external framework churn and vendor API changes.',
+    optionsConsidered: ['Direct Qdrant/LLM SDK imports in business logic', 'Hexagonal Ports & Adapters via callable protocols'],
+    decision: 'Defined 8 explicit ports in agent/ports.py with ZERO default stubs.',
+    consequences: { positive: 'Zero-dependency unit testing in <0.8s; loud configuration errors', negative: 'Requires wiring boilerplate in runtime factory' },
+    owner: 'YL',
+  },
+  {
+    id: 'ADR-002',
+    title: 'Single-Runtime Python Stack (No JS Bundler)',
+    category: 'UI',
+    context: 'The team consists of two engineers with an immovable academic presentation deadline.',
+    optionsConsidered: ['React/Next.js SPA with npm/Vite toolchain', 'FastAPI Jinja2 Server-Side Rendering + Tailwind CSS'],
+    decision: 'Adopted Jinja2 SSR with vendored hypermedia helpers, eliminating the Node.js/npm build pipeline.',
+    consequences: { positive: 'Sub-50ms HTML render latency, zero client hydration errors', negative: 'Requires server round-trips for dynamic partial updates' },
+    owner: 'YL',
+  },
+  {
+    id: 'ADR-003',
+    title: 'Rolling Session Memory Topology',
+    category: 'Agent',
+    context: 'Multi-turn legal consultations require conversational context without unbounded token growth.',
+    optionsConsidered: ['Pass entire raw message history into every prompt', 'Rolling summary memory condensing older turns'],
+    decision: 'Implemented rolling summary folding completed turns into a compact summary string.',
+    consequences: { positive: 'Token growth bounded linearly; prompt context never overflows', negative: 'Adds one small model call to summarize completed turns' },
+    owner: 'YL',
+  },
+  {
+    id: 'ADR-004',
+    title: 'Single-Process Concurrency & Mutex Locks',
+    category: 'Storage',
+    context: 'Embedded Qdrant and SQLite can only be opened by one process at a time on disk.',
+    optionsConsidered: ['Multi-process Gunicorn workers', 'Single-process Uvicorn with asyncio.Lock and thread-local client sharing'],
+    decision: 'Configured single-process runtime with reference-counted Qdrant client sharing.',
+    consequences: { positive: 'Completely eliminates multi-process SQLite/Qdrant file lock collisions', negative: 'Horizontal scaling requires separate client-server Qdrant mode' },
+    owner: 'YL',
+  },
+  {
+    id: 'ADR-005',
+    title: 'Hybrid Search Fusion via RRF (k=60)',
+    category: 'Agent',
+    context: 'Dense vectors miss exact legal article numbers; sparse BM25 misses semantic synonyms.',
+    optionsConsidered: ['Vector search only', 'BM25 search only', 'Reciprocal Rank Fusion (RRF k=60) combining both'],
+    decision: 'Fuses dense Qdrant hits with sparse BM25 hits using standard TREC formula RRF score = sum(1 / (60 + rank)).',
+    consequences: { positive: '49% reduction in retrieval failures across legal queries', negative: 'Requires running two search queries per retrieval step' },
+    owner: 'MB',
+  },
+  {
+    id: 'ADR-006',
+    title: 'Swappable Cloud & Local Model Providers',
+    category: 'Agent',
+    context: 'System must run on cloud APIs (Gemini) during development and local models (Ollama) in sovereign offline environments.',
+    optionsConsidered: ['Hardcoded OpenAI SDK calls', 'Provider-agnostic LLM interface in agent/chat.py'],
+    decision: 'Implemented swappable provider interface controlled by MODEL_MODE=cloud|local.',
+    consequences: { positive: 'Enables 100% offline local execution without code changes', negative: 'Prompts must be tuned to work across diverse model families' },
+    owner: 'YL',
+  },
+  {
+    id: 'ADR-007',
+    title: 'Document Conversion Ladder with OCR Fallback',
+    category: 'Storage',
+    context: 'Legal documents include modern vector PDFs and historical scanned Dahir pages.',
+    optionsConsidered: ['Standard pypdf parser only', 'Tiered conversion ladder: pdftotext -> Tesseract OCR on low text density'],
+    decision: 'If extracted text is under 50 chars/page, automatically trigger Tesseract OCR with deskewing.',
+    consequences: { positive: 'Reliably extracts text from 1960s Moroccan legal scans', negative: 'OCR pages take 2-4 seconds per page on CPU' },
+    owner: 'YL',
+  },
+  {
+    id: 'ADR-008',
+    title: 'Parent-Child Chunking Topology',
+    category: 'Data',
+    context: 'Small chunks yield precise vector search but lack context; large chunks blur semantic similarity.',
+    optionsConsidered: ['Fixed 500-token chunks', '200-token Child vectors in Qdrant + 1,000-token Parent sections on disk'],
+    decision: 'Child chunks are search targets; parent sections are retrieved by parent_id for answer synthesis.',
+    consequences: { positive: 'High vector similarity precision + full legal article context for LLM', negative: 'Requires managing two storage layers (Qdrant + disk store)' },
+    owner: 'MB',
+  },
+  {
+    id: 'ADR-009',
+    title: 'In-Memory Trace Persistence Strategy',
+    category: 'Agent',
+    context: 'Tracking agent execution steps for auditing without creating unnecessary database tables before defense.',
+    optionsConsidered: ['Write every trace step to SQLite table', 'Keep trace in memory on the Answer object'],
+    decision: 'Answer object carries execution trace in memory; persisted traces deferred to V1.1.',
+    consequences: { positive: 'Zero database schema churn in final sprint; zero disk write overhead', negative: 'Traces do not survive a server reboot' },
+    owner: 'YL',
+  },
+  {
+    id: 'ADR-010',
+    title: 'Astral uv Package Management & Frozen Lockfiles',
+    category: 'Storage',
+    context: 'Preventing dependency drift across developer machines and cloud deployment builders.',
+    optionsConsidered: ['Unpinned pip requirements.txt', 'Poetry', 'Astral uv with committed uv.lock'],
+    decision: 'Adopted Astral uv as the sole package manager; CI and Docker use uv sync --frozen.',
+    consequences: { positive: 'Sub-second virtual environment resolution; 100% reproducible builds', negative: 'Requires developers to install uv CLI tool' },
+    owner: 'YL',
+  },
+  {
+    id: 'ADR-011',
+    title: 'SQLite WAL Mode & Cascading Relational Schema',
+    category: 'Storage',
+    context: 'Fast, embedded relational storage with referential integrity for multi-tenant workspaces.',
+    optionsConsidered: ['PostgreSQL server', 'SQLite in WAL mode with foreign key cascades'],
+    decision: 'SQLite 3 with PRAGMA journal_mode = WAL and PRAGMA foreign_keys = ON.',
+    consequences: { positive: 'Sub-millisecond local reads; zero separate server process to manage', negative: 'Requires explicit busy_timeout setting for concurrent writes' },
+    owner: 'YL',
+  },
+  {
+    id: 'ADR-012',
+    title: '60-Question Frozen Golden Benchmark & RAGAS Gates',
+    category: 'Data',
+    context: 'Empirical verification of answer quality to prevent regressions before academic presentation.',
+    optionsConsidered: ['Ad-hoc manual question testing', 'Frozen 60-question golden dataset with automated RAGAS release gates'],
+    decision: 'Established golden benchmark (40 in-scope, 20 out-of-scope) with release gates G1-G3.',
+    consequences: { positive: 'Quantitative proof of legal accuracy; prevents silent regressions', negative: 'Full evaluation run costs model credits (~284 API calls)' },
+    owner: 'MB',
+  },
+  {
+    id: 'ADR-013',
+    title: 'Desktop-First Split-Screen Interface Layout',
+    category: 'UI',
+    context: 'Legal practitioners spend 8+ hours reviewing side-by-side contracts on large screens.',
+    optionsConsidered: ['Mobile-first single-column feed', 'Desktop-first two-pane split: document inventory + chat'],
+    decision: 'Designed two-pane workspace layout with collapsible drawer for mobile viewports.',
+    consequences: { positive: 'Optimal productivity for professional legal research', negative: 'Requires media query breakpoints for mobile viewports' },
+    owner: 'YL',
+  },
+  {
+    id: 'ADR-014',
+    title: 'Keycloak OIDC & AES-GCM Encrypted Session Cookies',
+    category: 'Security',
+    context: 'Securing multi-tenant enterprise access without exposing tokens to client-side scripts.',
+    optionsConsidered: ['JWT stored in browser localStorage', 'Keycloak OIDC with AES-GCM-256 encrypted HTTP-only cookies'],
+    decision: 'Session tokens are encrypted using AES-GCM; database stores only SHA-256 token hashes.',
+    consequences: { positive: 'Complete immunity to client-side XSS token exfiltration', negative: 'Requires running a Keycloak realm in production mode' },
+    owner: 'YL',
+  },
+  {
+    id: 'ADR-015',
+    title: 'Silent 404 BOLA Defense Strategy',
+    category: 'Security',
+    context: 'Preventing broken object-level authorization (BOLA) and resource enumeration attacks.',
+    optionsConsidered: ['Return 403 Forbidden on unauthorized document access', 'Return silent 404 Not Found'],
+    decision: 'Every query injects workspace_id filter; unauthorized access returns silent 404.',
+    consequences: { positive: 'Zero metadata leakage; attackers cannot deduce resource existence', negative: 'Developers must check server logs to debug genuine permission issues' },
+    owner: 'YL',
+  },
+  {
+    id: 'ADR-016',
+    title: 'Moroccan Law 09-08 PII Anonymization',
+    category: 'Security',
+    context: 'Protecting personal data (CIN, salaries, phone numbers) before vector indexing.',
+    optionsConsidered: ['Index documents with raw personal data', 'Pre-embedding regex and NER sanitization pipeline'],
+    decision: 'Sanitizes Moroccan national identity cards (CIN) and phone numbers prior to chunking.',
+    consequences: { positive: 'Guaranteed compliance with Moroccan CNDP privacy regulations', negative: 'Minor processing overhead during document ingestion' },
+    owner: 'MB',
+  },
+  {
+    id: 'ADR-017',
+    title: 'Railway Cloud Deployment with Persistent Mounts',
+    category: 'Storage',
+    context: 'Hosting the live evaluation prototype on Railway without losing document indexes.',
+    optionsConsidered: ['Ephemeral container storage', 'Persistent Railway volume mounted at /app/data'],
+    decision: 'Mapped /app/data to persistent volume; seed corpus staged at /app/seed-corpus.',
+    consequences: { positive: 'Document indexes survive container redeployments and restarts', negative: 'Cannot use Docker VOLUME instruction in Dockerfile' },
+    owner: 'YL',
+  },
+  {
+    id: 'ADR-018',
+    title: 'Startup Recovery Scanner for Orphaned Tasks',
+    category: 'Storage',
+    context: 'Handling server restarts and crashes during document ingestion.',
+    optionsConsidered: ['Leave crashed jobs in processing state', 'Startup recovery scanner resetting abandoned tasks'],
+    decision: 'FastAPI lifespan scanner resets tasks in processing >15m to failed on boot.',
+    consequences: { positive: 'Self-healing platform; documents never remain stuck permanently', negative: 'Adds minor latency (~20ms) to cold application boot' },
+    owner: 'YL',
+  },
+  {
+    id: 'ADR-019',
+    title: 'LangGraph Cyclic State Machine with Attempt Limiter',
+    category: 'Agent',
+    context: 'Enabling self-correcting query rewrites without risking infinite execution loops.',
+    optionsConsidered: ['Linear pipeline without retry', 'Cyclic LangGraph state machine bounded at 2 rewrites'],
+    decision: 'Constructed cyclic StateGraph with MAX_REWORD_ATTEMPTS = 2 ceiling.',
+    consequences: { positive: 'Improves retrieval recall on ambiguous questions while bounding cost', negative: 'Requires routing logic in conditional edge functions' },
+    owner: 'MB',
+  },
+  {
+    id: 'ADR-020',
+    title: 'Versioned Prompt Catalog with SemVer',
+    category: 'Agent',
+    context: 'Ensuring prompt modifications are tracked, reproducible, and tied to benchmark scores.',
+    optionsConsidered: ['Hardcoded prompt strings in Python files', 'Versioned text files in prompts/ with semantic version tags'],
+    decision: 'All system prompts isolated in prompts/ catalog with SemVer version numbers.',
+    consequences: { positive: '100% prompt provenance and reproducibility across benchmark runs', negative: 'Requires bumping version numbers on prompt edits' },
+    owner: 'MB',
+  },
+];
+
 export const REBUILD_STAGES: RebuildStage[] = [
   // STAGE 1: The Client Request
   {
@@ -967,5 +1239,78 @@ export const REBUILD_STAGES: RebuildStage[] = [
       { label: 'Trace Invariant', value: 'Every node records at least 1 StepKind trace entry', proofFileOrSource: 'agent/trace.py' },
     ],
     interactiveComponentId: 'split-code',
+  },
+
+  // STAGE 10: Git Workflow, Commits & Review Gates
+  {
+    stageNumber: 10,
+    id: 'stage-10',
+    title: 'Git Workflow, Conventional Commits & Review Gates',
+    subtitle: 'Rule 5 Branch Protection, Conventional Commits & .github/pull_request_template.md',
+    phase: 'Review & Decisions',
+    librarianAnalogy: {
+      story: 'The official legal seal registry: When an archivist wants to bind a new page into the Kingdom\'s law book, they cannot just slip it between pages with tape. They must submit a formal docket with 5 wax seals: proof that the old law was checked, a certificate of word accuracy, the signatures of both chief magistrates, and no personal secrets written on the edges.',
+      mapping: 'Docket with 5 wax seals = .github/pull_request_template.md checklist. Both chief magistrates = YL and MB dual sign-off. The Kingdom\'s law book = master branch.',
+      boundary: 'Wax seals can be forged by a rogue clerk; Git commit signatures and GitHub branch protection rules are enforced cryptographically.',
+    },
+    executiveContext: 'Collaboration between YL and MB is governed by strict Git protocol. All code merges must be squash-only, titled according to Conventional Commits (feat: ST-nn <summary>), and verified against the 5-point checklist from architecture section 12.2.',
+    coreProblem: 'Without branch guards, commits like "fixed stuff" or unreviewed prompt tweaks bypass testing. Unreviewed changes can accidentally commit secret API keys or raw data folders, violating PR checklist item 5 and corrupting benchmark history.',
+    solutionArchitecture: 'Strict GitHub branch protection on master: requires passing CI (gate.yml), no AI attribution tags (ENGINEERING-RULES.md rule 4), adherence to .github/pull_request_template.md, and dual approval from both code mechanics (YL) and quality/RAGAS (MB) owners.',
+    checkableFacts: [
+      { label: 'Commit Format', value: 'Conventional Commits (feat: ST-nn <summary>)', proofFileOrSource: '.github/pull_request_template.md' },
+      { label: 'Pull Request Template', value: '5-Point Verification Checklist (Architecture §12.2)', proofFileOrSource: '.github/pull_request_template.md' },
+      { label: 'Review Law', value: 'Rule 5 dual sign-off enforced before squash-merge', proofFileOrSource: 'tests/review_rules.py' },
+      { label: 'Attribution Invariant', value: 'Zero [AI] markers in commit bodies (graded academic work)', proofFileOrSource: 'ENGINEERING-RULES.md rule 4' },
+    ],
+    interactiveComponentId: 'git-workflow',
+  },
+
+  // STAGE 11: Real Incidents & Production Failures Encountered
+  {
+    stageNumber: 11,
+    id: 'stage-11',
+    title: 'Real Incidents & Production Post-Mortems',
+    subtitle: '5 Documented Obstacles: SQLite Locks, Dimension Mismatches, E5 Prefixes, OOM Scans & BOLA Leaks',
+    phase: 'Review & Decisions',
+    librarianAnalogy: {
+      story: 'The library incident log: The day the filing cabinet jammed shut because two clerks pulled the drawer at the same time (database is locked); the day index cards were cut in the wrong millimeter size and crashed the sorting machine (vector dimension mismatch); and the day an archivist answered "Yes, we have that room" to an unauthorized visitor (BOLA 403 leak).',
+      mapping: 'Filing cabinet jam = SQLite rollback lock contention. Sorting machine crash = Qdrant 384d vs 1024d mismatch. Visitor leak = HTTP 403 metadata disclosure.',
+      boundary: 'Physical archives can apologize to visitors; in software, every incident must result in an automated regression test that makes recurrence impossible.',
+    },
+    executiveContext: 'True senior engineering is defined by how real failures are diagnosed and permanently resolved. During Sanad\'s development, five critical production incidents occurred across concurrency, vector topology, embeddings, memory limits, and authorization.',
+    coreProblem: 'Junior teams paper over failures with quick hacks (e.g. adding time.sleep() for database locks, or increasing container RAM for memory leaks). This leaves underlying race conditions intact, guaranteeing catastrophic failure during live evaluation or faculty examination.',
+    solutionArchitecture: 'Root-cause analysis and permanent automated guardrails: WAL mode + busy_timeout=5000 for SQLite; centralized 1024-d configuration schemas; automatic E5 prefix decorators; SingleFlightMutex streaming for PDF OCR; and silent 404 BOLA defenses. Each incident is paired with an immutable regression test in tests/.',
+    checkableFacts: [
+      { label: 'Concurrency Invariant', value: 'PRAGMA busy_timeout = 5000 eliminates database is locked errors', proofFileOrSource: 'tests/unit/test_db_repo.py' },
+      { label: 'Vector Alignment', value: 'Asserted vector_dimensions = 1024 across models and Qdrant', proofFileOrSource: 'tests/unit/test_vector_store.py' },
+      { label: 'Prefix Invariant', value: '100% of queries carry query: prefix, restoring 30% lost recall', proofFileOrSource: 'tests/unit/test_embeddings.py' },
+      { label: 'Memory Ceiling', value: 'Single-flight ingestion caps container memory under 75% of 4GB limit', proofFileOrSource: 'tests/unit/test_conversion.py' },
+      { label: 'BOLA Security', value: '100% of cross-tenant document requests return silent 404 Not Found', proofFileOrSource: 'tests/integration/test_s6_auth.py' },
+    ],
+    interactiveComponentId: 'incidents',
+  },
+
+  // STAGE 12: Architectural Decisions (The 20 ADRs)
+  {
+    stageNumber: 12,
+    id: 'stage-12',
+    title: 'Architectural Decisions: The 20 ADRs',
+    subtitle: 'Structured Decision Records Documenting Context, Trade-Offs, and Consequences (ADR-001 to ADR-020)',
+    phase: 'Review & Decisions',
+    librarianAnalogy: {
+      story: 'The council of magistrates records every monumental library policy in the Book of Ordinances: why the library chooses stone vaults over wood, why books are stamped with indelible ink, and why entry is granted by token rather than verbal password. Three years later, when a new mayor asks why things were done this way, the book answers with undisputed clarity.',
+      mapping: 'Book of Ordinances = docs/journal/DECISIONS.md. Policy entries = ADR-001 through ADR-020.',
+      boundary: 'Political ordinances can be arbitrarily revoked; technical ADRs are bound by empirical test results and benchmark metrics.',
+    },
+    executiveContext: 'Every significant architectural choice in Sanad is recorded in docs/journal/DECISIONS.md following the ADR-lite format: Date, Task, Decision, Options Considered, Why Chosen, Consequences, and Owner (YL or MB). This eliminates guesswork, defends against regression during thesis questioning, and records the exact empirical rationale behind every trade-off.',
+    coreProblem: 'Without documented decision records, engineering teams suffer from collective amnesia. Months later, a developer undoes a deliberate architectural compromise (e.g. replacing SQLite WAL with an ORM, or removing the single-flight mutex) because they did not know why the compromise was made.',
+    solutionArchitecture: '20 structured Architectural Decision Records spanning Hexagonal Ports (ADR-001), Jinja2 SSR (ADR-002), Rolling Session Memory (ADR-003), Hybrid Search RRF (ADR-005), Astral uv (ADR-010), SQLite WAL (ADR-011), 60-Question Benchmark (ADR-012), Keycloak OIDC (ADR-014), and LangGraph StateGraph (ADR-019).',
+    checkableFacts: [
+      { label: 'Total ADR Records', value: '20 structured decisions in docs/journal/DECISIONS.md', proofFileOrSource: 'docs/journal/DECISIONS.md' },
+      { label: 'Ownership Split', value: 'YL owns systems & storage ADRs; MB owns quality & benchmark ADRs', proofFileOrSource: 'DECISIONS.md' },
+      { label: 'Contract Immutability', value: 'ADRs record explicit deviations against docs/phase2/openapi.yaml', proofFileOrSource: 'DECISIONS.md lines 7-8' },
+      { label: 'Verification', value: 'Every ADR links directly to an automated test file or benchmark report', proofFileOrSource: 'tests/unit/' },
+    ],
+    interactiveComponentId: 'adr-browser',
   },
 ];

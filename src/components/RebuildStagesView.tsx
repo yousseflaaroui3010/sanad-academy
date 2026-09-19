@@ -9,6 +9,9 @@ import { DataTopologyInteractive } from './rebuild/DataTopologyInteractive';
 import { ProjectTreeInteractive } from './rebuild/ProjectTreeInteractive';
 import { DevOpsPipelineInteractive } from './rebuild/DevOpsPipelineInteractive';
 import { SplitScreenCodeStudio } from './rebuild/SplitScreenCodeStudio';
+import { GitWorkflowInteractive } from './rebuild/GitWorkflowInteractive';
+import { IncidentPostMortemInteractive } from './rebuild/IncidentPostMortemInteractive';
+import { AdrDecisionBrowserInteractive } from './rebuild/AdrDecisionBrowserInteractive';
 import { ChevronLeft, ChevronRight, Eye, ShieldCheck, Flame, Scale } from 'lucide-react';
 import { playHapticClick, playSlideSwoosh } from '../utils/soundEffects';
 
@@ -65,6 +68,12 @@ export const RebuildStagesView: React.FC<Props> = ({ lang = 'en' }) => {
         return <DevOpsPipelineInteractive lang={lang} />;
       case 'split-code':
         return <SplitScreenCodeStudio lang={lang} />;
+      case 'git-workflow':
+        return <GitWorkflowInteractive lang={lang} />;
+      case 'incidents':
+        return <IncidentPostMortemInteractive lang={lang} />;
+      case 'adr-browser':
+        return <AdrDecisionBrowserInteractive lang={lang} />;
       default:
         return null;
     }
