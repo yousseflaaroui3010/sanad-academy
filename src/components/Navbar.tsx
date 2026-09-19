@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, Menu, X, Sparkles, RotateCcw, Award, Search, BookOpen, FlaskConical } from 'lucide-react';
+import { Volume2, Menu, X, Sparkles, RotateCcw, Award, Search, BookOpen, FlaskConical, Layers } from 'lucide-react';
 import { playHapticClick } from '../utils/soundEffects';
 import { UI_TRANSLATIONS } from '../data/translations';
 
@@ -13,8 +13,8 @@ interface NavbarProps {
   onResetProgress: () => void;
   onOpenCertificate: () => void;
   onOpenSearch: () => void;
-  currentTab: 'curriculum' | 'sandbox';
-  onSelectTab: (tab: 'curriculum' | 'sandbox') => void;
+  currentTab: 'curriculum' | 'rebuild' | 'sandbox';
+  onSelectTab: (tab: 'curriculum' | 'rebuild' | 'sandbox') => void;
   lang: 'en' | 'fr';
   onSelectLang: (lang: 'en' | 'fr') => void;
 }
@@ -80,7 +80,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Mode Switcher: Curriculum vs Sandbox */}
+          {/* Mode Switcher: Curriculum vs Rebuilding Sanad vs Sandbox */}
           <div className="hidden sm:flex items-center rounded-full bg-black/5 p-1 ml-3 border border-black/5">
             <button
               onClick={() => {
@@ -95,6 +95,20 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <BookOpen size={12} />
               <span>{t.curriculum}</span>
+            </button>
+            <button
+              onClick={() => {
+                onSelectTab('rebuild');
+                playHapticClick();
+              }}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition ${
+                currentTab === 'rebuild'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-[#6e6e73] hover:text-[#1d1d1f]'
+              }`}
+            >
+              <Layers size={12} />
+              <span>{lang === 'fr' ? 'Reconstruction (16 Étapes)' : 'Rebuilding Sanad (16 Stages)'}</span>
             </button>
             <button
               onClick={() => {

@@ -8,6 +8,7 @@ import { JourneyTracker } from './components/JourneyTracker';
 import { DefenseCertificateModal } from './components/DefenseCertificateModal';
 import { SpotlightSearchModal } from './components/SpotlightSearchModal';
 import { ArchitectureSandbox } from './components/sandbox/ArchitectureSandbox';
+import { RebuildStagesView } from './components/RebuildStagesView';
 
 export function App() {
   const allSubLessonsWithParents = COURSE_TRACKS.flatMap((track) =>
@@ -44,7 +45,7 @@ export function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCertificateOpen, setIsCertificateOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [currentTab, setCurrentTab] = useState<'curriculum' | 'sandbox'>('curriculum');
+  const [currentTab, setCurrentTab] = useState<'curriculum' | 'rebuild' | 'sandbox'>('rebuild');
   const [lang, setLang] = useState<'en' | 'fr'>(() => {
     try {
       return (localStorage.getItem('sanad_lang') as 'en' | 'fr') || 'en';
@@ -196,6 +197,10 @@ export function App() {
       {currentTab === 'sandbox' ? (
         <div className="flex-1 w-full px-4 sm:px-8 py-4">
           <ArchitectureSandbox />
+        </div>
+      ) : currentTab === 'rebuild' ? (
+        <div className="flex-1 w-full px-4 sm:px-8 py-4">
+          <RebuildStagesView lang={lang} />
         </div>
       ) : (
         <div className="flex-1 flex px-4 sm:px-8 py-4 max-w-7xl mx-auto w-full gap-8">
