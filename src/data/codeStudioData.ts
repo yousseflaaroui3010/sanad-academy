@@ -509,4 +509,450 @@ async def sync_workspace(workspace_id: str, folder_path: Path) -> dict:
       ],
     },
   },
+
+  // 4. conversion.py
+  {
+    id: 'conversion-ladder',
+    filePath: 'conversion.py',
+    title: 'The Conversion Ladder & DOCX Guards (conversion.py)',
+    category: 'Ingestion Pipeline',
+    summary: 'Converts documents on disk into Markdown text for hierarchical chunking. Features Tesseract OCR fallback on scanned PDFs and strict ZIP package sniffing for DOCX/PPTX files.',
+    totalLines: 420,
+    fullSourceCode: `from __future__ import annotations
+
+import logging
+import zipfile
+from pathlib import Path
+import pymupdf
+import pymupdf4llm
+from markitdown import MarkItDown
+
+_DOCX_MAIN_PART = "word/document.xml"
+_PPTX_MAIN_PART = "ppt/presentation.xml"
+
+def convert_to_markdown(file_path: Path) -> str:
+    """Converts PDF, DOCX, or text files to clean Markdown with heading hierarchy."""
+    ext = file_path.suffix.lower()
+
+    if ext == ".docx":
+        # Guard against corrupted non-Word ZIPs
+        if not _is_valid_docx(file_path):
+            raise ValueError(f"Corrupted or invalid DOCX: missing {_DOCX_MAIN_PART}")
+        md = MarkItDown()
+        return md.convert(str(file_path)).text_content
+
+    if ext == ".pdf":
+        doc = pymupdf.open(file_path)
+        # Check text density across pages
+        total_chars = sum(len(page.get_text()) for page in doc)
+        if total_chars < 50 * len(doc):
+            # Fallback to Tesseract OCR with deskewing
+            return _ocr_pdf_pages(doc)
+        return pymupdf4llm.to_markdown(file_path)
+
+    if ext in (".txt", ".md"):
+        return file_path.read_text(encoding="utf-8-sig")
+
+    raise ValueError(f"Unsupported file extension: {ext}")
+
+def _is_valid_docx(path: Path) -> bool:
+    try:
+        with zipfile.ZipFile(path, "r") as z:
+            return _DOCX_MAIN_PART in z.namelist()
+    except zipfile.BadZipFile:
+        return False`,
+    segments: [
+      {
+        id: 'docx-zip-guard',
+        stepNumber: 1,
+        title: 'DOCX Package Sniffing & Emptiness Gate',
+        startLine: 12,
+        endLine: 28,
+        codeSnippet: `    if ext == ".docx":
+        # Guard against corrupted non-Word ZIPs
+        if not _is_valid_docx(file_path):
+            raise ValueError(f"Corrupted or invalid DOCX: missing {_DOCX_MAIN_PART}")
+        md = MarkItDown()
+        return md.convert(str(file_path)).text_content
+
+    if ext == ".pdf":
+        doc = pymupdf.open(file_path)
+        # Check text density across pages
+        total_chars = sum(len(page.get_text()) for page in doc)
+        if total_chars < 50 * len(doc):
+            # Fallback to Tesseract OCR with deskewing
+            return _ocr_pdf_pages(doc)
+        return pymupdf4llm.to_markdown(file_path)`,
+        plainExplanation: 'Third-party converters like markitdown fail dangerously on corrupted DOCX files: rather than raising an error, markitdown falls back to a directory-listing parser and returns raw zip folder names as valid text! This block proactively inspects the ZIP package for word/document.xml before markitdown touches it, and tests PDF text density to trigger OCR on scanned pages.',
+        plainExplanationFr: 'Les convertisseurs tiers échouent de manière perverse sur les DOCX corrompus : markitdown ne lève pas d\'erreur mais renvoie l\'arborescence du zip comme du texte valide ! Ce bloc inspecte l\'archive pour word/document.xml avant conversion, et vérifie la densité textuelle des PDF pour activer l\'OCR sur les scans.',
+        failurePrevented: 'Prevents corrupted files from being silently indexed as valid text. Without this guard, directory listings or blank scan pages would be embedded into Qdrant and cited as legal authority.',
+        failurePreventedFr: 'Empêche l\'indexation silencieuse de faux documents ou de scans vides comme autorités juridiques dans la base vectorielle.',
+        variablesAndTypes: [
+          { name: '_DOCX_MAIN_PART', type: 'str', description: 'Constant "word/document.xml" required inside OOXML packages' },
+          { name: 'total_chars', type: 'int', description: 'Aggregate extracted character count across all document pages' },
+        ],
+      },
+    ],
+    blastRadius: {
+      summary: 'conversion.py translates raw filesystem bytes into markdown text. A failure here halts the entire ingestion pipeline for that document.',
+      nodes: [
+        { id: 'conversion-py', label: 'conversion.py', type: 'current', description: 'Document conversion ladder', falloutIfBroken: 'Root file under inspection' },
+        { id: 'sync-py', label: 'sync.py', type: 'caller', description: 'Calls convert_to_markdown per file', falloutIfBroken: 'Sync run records failed status for unconvertible files' },
+        { id: 'chunking-py', label: 'chunking.py', type: 'downstream', description: 'Consumes markdown text for heading splits', falloutIfBroken: 'Missing markdown headings collapses parent-child hierarchies' },
+        { id: 'test-conversion', label: 'tests/unit/test_conversion.py', type: 'test', description: 'Conversion unit test suite', falloutIfBroken: 'CI gate flags parser regression immediately' },
+      ],
+      edges: [
+        { from: 'sync-py', to: 'conversion-py', relationship: 'calls' },
+        { from: 'conversion-py', to: 'chunking-py', relationship: 'renders' },
+        { from: 'test-conversion', to: 'conversion-py', relationship: 'validates' },
+      ],
+    },
+  },
+
+  // 5. change_detection.py
+  {
+    id: 'change-detection',
+    filePath: 'change_detection.py',
+    title: 'SHA-256 4-State Differential Engine (change_detection.py)',
+    category: 'Ingestion Pipeline',
+    summary: 'Computes cryptographic SHA-256 file fingerprints and compares them against the SQLite registry to classify files into NEW, UNCHANGED, MODIFIED, or ORPHAN.',
+    totalLines: 240,
+    fullSourceCode: `from __future__ import annotations
+
+import hashlib
+from enum import StrEnum
+from pathlib import Path
+from db import repo
+
+class DocumentState(StrEnum):
+    NEW = "new"
+    UNCHANGED = "unchanged"
+    MODIFIED = "modified"
+    ORPHAN = "orphan"
+
+def compute_sha256(path: Path) -> str:
+    """Reads file in 64KB chunks to compute SHA-256 without memory spikes."""
+    hasher = hashlib.sha256()
+    with path.open("rb") as f:
+        while chunk := f.read(65536):
+            hasher.update(chunk)
+    size = path.stat().st_size
+    return f"sha256:{hasher.hexdigest()}:{size}"
+
+def detect_changes(workspace_id: str, folder_path: Path) -> list[DocumentStateItem]:
+    existing_docs = repo.get_documents_by_workspace(workspace_id)
+    seen_files: set[str] = set()
+    items: list[DocumentStateItem] = []
+
+    for file_path in folder_path.glob("*"):
+        if not file_path.is_file():
+            continue
+        seen_files.add(file_path.name)
+        new_hash = compute_sha256(file_path)
+        old_doc = existing_docs.get(file_path.name)
+
+        if old_doc is None:
+            items.append(DocumentStateItem(file_path.name, new_hash, DocumentState.NEW))
+        elif old_doc.content_hash == new_hash:
+            items.append(DocumentStateItem(file_path.name, new_hash, DocumentState.UNCHANGED))
+        else:
+            items.append(DocumentStateItem(file_path.name, new_hash, DocumentState.MODIFIED))
+
+    # Detect deleted files (ORPHAN)
+    for file_name, doc in existing_docs.items():
+        if file_name not in seen_files and doc.status == "active":
+            items.append(DocumentStateItem(file_name, doc.content_hash, DocumentState.ORPHAN))
+
+    return items`,
+    segments: [
+      {
+        id: 'sha256-streaming',
+        stepNumber: 1,
+        title: 'Streaming Hash & 4-State Machine',
+        startLine: 12,
+        endLine: 24,
+        codeSnippet: `def compute_sha256(path: Path) -> str:
+    """Reads file in 64KB chunks to compute SHA-256 without memory spikes."""
+    hasher = hashlib.sha256()
+    with path.open("rb") as f:
+        while chunk := f.read(65536):
+            hasher.update(chunk)
+    size = path.stat().st_size
+    return f"sha256:{hasher.hexdigest()}:{size}"`,
+        plainExplanation: 'Loading a 100MB PDF into memory all at once to hash it consumes scarce RAM. This function streams the file in small 64-kilobyte chunks directly through hashlib.sha256, packing the hex digest and the byte size into a single serialized fingerprint string.',
+        plainExplanationFr: 'Charger un gros PDF d\'un coup en mémoire pour le hacher sature la RAM. Cette fonction lit le fichier par morceaux de 64 kilo-octets dans hashlib.sha256 et sérialise le hash et la taille en une empreinte cryptographique unique.',
+        failurePrevented: 'Prevents out-of-memory crashes on multi-megabyte files and guards against hash collisions by verifying both the byte count and SHA-256 digest.',
+        failurePreventedFr: 'Évite les dépassements de mémoire sur les gros fichiers et protège contre les collisions de hash en combinant empreinte et taille en octets.',
+        variablesAndTypes: [
+          { name: 'chunk := f.read(65536)', type: 'bytes', description: '64KB binary buffer' },
+          { name: 'size', type: 'int', description: 'Byte length on disk from stat().st_size' },
+        ],
+      },
+    ],
+    blastRadius: {
+      summary: 'change_detection.py protects the system from redundant re-embedding work. A bug here triggers unnecessary re-indexing or fails to catch modified files.',
+      nodes: [
+        { id: 'change-py', label: 'change_detection.py', type: 'current', description: 'Cryptographic fingerprint engine', falloutIfBroken: 'Root file under inspection' },
+        { id: 'sync-py', label: 'sync.py', type: 'caller', description: 'Queries change states per sync cycle', falloutIfBroken: 'Files incorrectly skipped or re-ingested unnecessarily' },
+        { id: 'repo-py', label: 'db/repo.py', type: 'dependency', description: 'Reads existing document content hashes', falloutIfBroken: 'Database query errors halt change detection' },
+        { id: 'test-change', label: 'tests/unit/test_change_detection.py', type: 'test', description: 'Change detection unit tests', falloutIfBroken: 'CI blocks pull request on failure' },
+      ],
+      edges: [
+        { from: 'sync-py', to: 'change-py', relationship: 'calls' },
+        { from: 'change-py', to: 'repo-py', relationship: 'imports' },
+        { from: 'test-change', to: 'change-py', relationship: 'validates' },
+      ],
+    },
+  },
+
+  // 6. vector_store.py
+  {
+    id: 'vector-store',
+    filePath: 'vector_store.py',
+    title: 'Qdrant Collection Topology & Search (vector_store.py)',
+    category: 'Storage Layer',
+    summary: 'Manages embedded Qdrant collections, deterministic UUIDv5 derivation for child chunk points, and Cosine similarity search with payload extraction.',
+    totalLines: 634,
+    fullSourceCode: `from __future__ import annotations
+
+import uuid
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams, PointStruct
+from config import get_settings
+
+_COLLECTION_PREFIX = "ws_"
+_COLLECTION_SUFFIX = "_children"
+_CHILD_ID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_DNS, "children.sanad.local")
+
+def _collection_name(workspace_id: str) -> str:
+    return f"{_COLLECTION_PREFIX}{workspace_id}{_COLLECTION_SUFFIX}"
+
+def _child_point_id(source_file: str, child_index: int) -> str:
+    """Derives deterministic UUIDv5 so re-indexing overwrites points in place."""
+    seed = f"{source_file}\\x00{child_index}"
+    return str(uuid.uuid5(_CHILD_ID_NAMESPACE, seed))
+
+def search(client: QdrantClient, workspace_id: str, query_vector: list[float], limit: int = 5) -> list[SearchHit]:
+    col = _collection_name(workspace_id)
+    results = client.search(
+        collection_name=col,
+        query_vector=query_vector,
+        limit=limit,
+        with_payload=True
+    )
+    return [
+        SearchHit(
+            point_id=str(r.id),
+            score=float(r.score),
+            parent_id=r.payload["parent_id"],
+            source_file=r.payload["source_file"],
+            section_label=r.payload["section_label"],
+            chunk_text=r.payload["chunk_text"],
+        )
+        for r in results
+    ]`,
+    segments: [
+      {
+        id: 'uuid5-derivation',
+        stepNumber: 1,
+        title: 'Deterministic UUIDv5 Derivation (_child_point_id)',
+        startLine: 13,
+        endLine: 20,
+        codeSnippet: `def _child_point_id(source_file: str, child_index: int) -> str:
+    """Derives deterministic UUIDv5 so re-indexing overwrites points in place."""
+    seed = f"{source_file}\\x00{child_index}"
+    return str(uuid.uuid5(_CHILD_ID_NAMESPACE, seed))`,
+        plainExplanation: 'Qdrant strictly requires point IDs to be valid UUID strings. If random UUID4s are minted on every sync, updating a modified document leaves old vectors orphaned in the index. Deriving a deterministic UUIDv5 from the source filename and chunk index ensures that re-indexing overwrites points in-place without leaving phantom search hits.',
+        plainExplanationFr: 'Qdrant exige que les identifiants de points soient des UUID valides. Générer des UUID4 aléatoires à chaque synchronisation laisserait d\'anciens vecteurs orphelins. Dériver un UUIDv5 déterministe à partir du nom de fichier et de l\'index garantit que la mise à jour écrase les points en place sans créer de doublons fantômes.',
+        failurePrevented: 'Prevents phantom search hits where deleted or modified text fragments remain searchable forever in Qdrant.',
+        failurePreventedFr: 'Évite les résultats fantômes où des fragments de texte modifiés ou supprimés continuent d\'apparaître dans les recherches.',
+        variablesAndTypes: [
+          { name: '_CHILD_ID_NAMESPACE', type: 'UUID', description: 'Deterministic namespace derived from children.sanad.local' },
+          { name: 'seed', type: 'str', description: 'NUL-separated string combining source filename and chunk sequence index' },
+        ],
+      },
+    ],
+    blastRadius: {
+      summary: 'vector_store.py is the primary retrieval interface for semantic search. Any failure here breaks agent retrieval and relevance grading.',
+      nodes: [
+        { id: 'vector-py', label: 'vector_store.py', type: 'current', description: 'Qdrant vector engine adapter', falloutIfBroken: 'Root file under inspection' },
+        { id: 'retrieval-py', label: 'agent/retrieval.py', type: 'caller', description: 'Executes dense search in hybrid fusion', falloutIfBroken: 'Agent retrieval returns empty hit lists' },
+        { id: 'sync-py', label: 'sync.py', type: 'caller', description: 'Upserts child vectors during ingestion', falloutIfBroken: 'Document ingestion halts on vector write error' },
+        { id: 'test-vector', label: 'tests/unit/test_vector_store.py', type: 'test', description: 'Vector store unit test suite', falloutIfBroken: 'CI blocks pull request on failure' },
+      ],
+      edges: [
+        { from: 'retrieval-py', to: 'vector-py', relationship: 'calls' },
+        { from: 'sync-py', to: 'vector-py', relationship: 'calls' },
+        { from: 'test-vector', to: 'vector-py', relationship: 'validates' },
+      ],
+    },
+  },
+
+  // 7. db/schema.sql
+  {
+    id: 'db-schema',
+    filePath: 'db/schema.sql',
+    title: 'Relational 3NF Schema & Cascades (db/schema.sql)',
+    category: 'Data Architecture',
+    summary: 'The Third Normal Form SQLite database blueprint with PRAGMA foreign_keys = ON, PRAGMA journal_mode = WAL, and ON DELETE CASCADE.',
+    totalLines: 197,
+    fullSourceCode: `-- Sanad SQLite registry schema (3NF)
+CREATE TABLE IF NOT EXISTS workspace (
+  id             TEXT    PRIMARY KEY,
+  name           TEXT    NOT NULL UNIQUE,
+  folder_path    TEXT    NOT NULL,
+  legal_flag     INTEGER NOT NULL DEFAULT 0,
+  created_at     TEXT    NOT NULL,
+  owner_user_id  TEXT
+);
+
+CREATE TABLE IF NOT EXISTS document (
+  id             TEXT    PRIMARY KEY,
+  workspace_id   TEXT    NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+  file_name      TEXT    NOT NULL,
+  file_type      TEXT    NOT NULL,
+  content_hash   TEXT    NOT NULL,
+  page_count     INTEGER,
+  status         TEXT    NOT NULL CHECK (status IN ('active', 'failed', 'skipped', 'removed')),
+  last_synced_at TEXT,
+  UNIQUE (workspace_id, file_name)
+);
+
+CREATE TABLE IF NOT EXISTS answer_feedback (
+  id             TEXT    PRIMARY KEY,
+  workspace_id   TEXT    NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+  answer_key     TEXT    NOT NULL UNIQUE,
+  question       TEXT    NOT NULL,
+  answer_text    TEXT    NOT NULL,
+  verdict        TEXT    NOT NULL CHECK (verdict IN ('up', 'down')),
+  comment        TEXT,
+  created_at     TEXT    NOT NULL,
+  updated_at     TEXT    NOT NULL
+);`,
+    segments: [
+      {
+        id: 'cascade-integrity',
+        stepNumber: 1,
+        title: 'Foreign Key Cascades & Tenant Boundary',
+        startLine: 11,
+        endLine: 21,
+        codeSnippet: `CREATE TABLE IF NOT EXISTS document (
+  id             TEXT    PRIMARY KEY,
+  workspace_id   TEXT    NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+  file_name      TEXT    NOT NULL,
+  file_type      TEXT    NOT NULL,
+  content_hash   TEXT    NOT NULL,
+  page_count     INTEGER,
+  status         TEXT    NOT NULL CHECK (status IN ('active', 'failed', 'skipped', 'removed')),
+  last_synced_at TEXT,
+  UNIQUE (workspace_id, file_name)
+);`,
+        plainExplanation: 'Deleting a workspace must cleanly erase all associated document metadata, sync runs, and conversations without leaving orphaned records. The ON DELETE CASCADE constraint guarantees that a single DELETE FROM workspace automatically cleans up every child table when PRAGMA foreign_keys = ON is active.',
+        plainExplanationFr: 'La suppression d\'un espace de travail doit effacer proprement toutes les métadonnées de documents et les conversations sans laisser d\'enregistrements orphelins. La clause ON DELETE CASCADE garantit que supprimer un workspace purge automatiquement toutes les tables filles.',
+        failurePrevented: 'Prevents orphaned database records that continue to appear in search queries after a workspace is removed.',
+        failurePreventedFr: 'Évite les lignes orphelines qui polluent la base de données et faussent les recherches après le retrait d\'un dossier.',
+        variablesAndTypes: [
+          { name: 'REFERENCES workspace(id) ON DELETE CASCADE', type: 'SQL Clause', description: 'Enforces automatic relational cascading' },
+          { name: 'CHECK (status IN (...))', type: 'SQL Constraint', description: 'Strict state enumeration validation at database engine level' },
+        ],
+      },
+    ],
+    blastRadius: {
+      summary: 'db/schema.sql defines all relational tables. Any unmanaged alteration to column names or types breaks repo.py and all API handlers.',
+      nodes: [
+        { id: 'schema-sql', label: 'db/schema.sql', type: 'current', description: 'Relational database schema DDL', falloutIfBroken: 'Root file under inspection' },
+        { id: 'repo-py', label: 'db/repo.py', type: 'caller', description: 'Executes DDL on database initialization', falloutIfBroken: 'Schema errors cause repo connect failure' },
+        { id: 'workspaces-py', label: 'workspaces.py', type: 'downstream', description: 'Queries workspace table records', falloutIfBroken: 'Multi-tenant resolution fails' },
+        { id: 'test-db', label: 'tests/unit/test_db_repo.py', type: 'test', description: 'Database unit test suite', falloutIfBroken: 'CI blocks pull request on failure' },
+      ],
+      edges: [
+        { from: 'repo-py', to: 'schema-sql', relationship: 'calls' },
+        { from: 'schema-sql', to: 'workspaces-py', relationship: 'renders' },
+        { from: 'test-db', to: 'schema-sql', relationship: 'validates' },
+      ],
+    },
+  },
+
+  // 8. app.py
+  {
+    id: 'app-main',
+    filePath: 'app.py',
+    title: 'FastAPI Server Lifespan & Probes (app.py)',
+    category: 'Web API & Entry Point',
+    summary: 'Initializes the FastAPI application, mounts lifespan startup hooks, validates Pydantic settings, and serves sub-50ms /healthz probes.',
+    totalLines: 315,
+    fullSourceCode: `from __future__ import annotations
+
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Response
+from config import get_settings
+from recovery import recover_abandoned_jobs
+from db.repo import get_repo
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 1. Assert Pydantic configuration at boot (fail-fast)
+    settings = get_settings()
+    # 2. Run startup self-healing recovery scan
+    recover_abandoned_jobs()
+    yield
+    # Shutdown logic
+
+app = FastAPI(lifespan=lifespan)
+
+@app.get("/healthz")
+def healthz_endpoint():
+    repo = get_repo()
+    # Quick probe: asserts SQLite read & write capability
+    if not repo.check_health():
+        return Response(status_code=503, content="Database degraded")
+    return Response(status_code=200, content="OK")`,
+    segments: [
+      {
+        id: 'lifespan-startup',
+        stepNumber: 1,
+        title: 'Lifespan Fail-Fast Boot & Health Probe',
+        startLine: 9,
+        endLine: 24,
+        codeSnippet: `@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 1. Assert Pydantic configuration at boot (fail-fast)
+    settings = get_settings()
+    # 2. Run startup self-healing recovery scan
+    recover_abandoned_jobs()
+    yield
+
+@app.get("/healthz")
+def healthz_endpoint():
+    repo = get_repo()
+    if not repo.check_health():
+        return Response(status_code=503, content="Database degraded")
+    return Response(status_code=200, content="OK")`,
+        plainExplanation: 'Before the web server accepts any network traffic, this lifespan hook asserts configuration validity and runs recover_abandoned_jobs() to reset tasks that were abandoned if the previous container crashed mid-sync. The /healthz endpoint performs an active SQLite health check and responds in under 50ms.',
+        plainExplanationFr: 'Avant d\'accepter des requêtes réseau, ce hook de cycle de vie valide les variables de configuration et exécute recover_abandoned_jobs() pour réinitialiser les tâches orphelines suite à un crash. La sonde /healthz vérifie la santé de SQLite en moins de 50ms.',
+        failurePrevented: 'Prevents zombie jobs from locking document synchronization forever and provides cloud orchestrators with an honest health status.',
+        failurePreventedFr: 'Évite que des tâches zombies bloquent indéfiniment la synchronisation des documents et fournit un bilan de santé transparent au cloud.',
+        variablesAndTypes: [
+          { name: 'settings', type: 'Settings', description: 'Pydantic BaseSettings singleton verifying env vars' },
+          { name: 'recover_abandoned_jobs()', type: 'Function', description: 'Recovery scanner resetting stuck PROCESSING tasks' },
+        ],
+      },
+    ],
+    blastRadius: {
+      summary: 'app.py is the primary process entry point. A fatal crash here halts the entire web server and API.',
+      nodes: [
+        { id: 'app-py', label: 'app.py', type: 'current', description: 'Main application entry point', falloutIfBroken: 'Root file under inspection' },
+        { id: 'config-py', label: 'config.py', type: 'dependency', description: 'Pydantic BaseSettings model', falloutIfBroken: 'Missing configuration aborts server startup' },
+        { id: 'recovery-py', label: 'recovery.py', type: 'dependency', description: 'Startup recovery scanner', falloutIfBroken: 'Database initialization errors block server boot' },
+        { id: 'railway-probe', label: 'Railway Cloud Probe', type: 'caller', description: 'Pings /healthz every 60 seconds', falloutIfBroken: 'Railway marks deployment unhealthy and restarts container' },
+        { id: 'test-startup', label: 'tests/unit/test_startup.py', type: 'test', description: 'Application startup unit tests', falloutIfBroken: 'CI gate blocks pull request on failure' },
+      ],
+      edges: [
+        { from: 'app-py', to: 'config-py', relationship: 'imports' },
+        { from: 'app-py', to: 'recovery-py', relationship: 'calls' },
+        { from: 'railway-probe', to: 'app-py', relationship: 'calls' },
+        { from: 'test-startup', to: 'app-py', relationship: 'validates' },
+      ],
+    },
+  },
 ];

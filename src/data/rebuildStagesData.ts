@@ -99,14 +99,25 @@ export interface RebuildStage {
   title: string;
   subtitle: string;
   phase: 'Inception' | 'Blueprint' | 'Infrastructure' | 'Code Studio' | 'Review & Decisions' | 'Production';
+  titleFr?: string;
+  subtitleFr?: string;
+  phaseFr?: string;
   librarianAnalogy: {
     story: string;
     mapping: string;
     boundary: string;
   };
+  librarianAnalogyFr?: {
+    story: string;
+    mapping: string;
+    boundary: string;
+  };
   executiveContext: string;
+  executiveContextFr?: string;
   coreProblem: string;
+  coreProblemFr?: string;
   solutionArchitecture: string;
+  solutionArchitectureFr?: string;
   checkableFacts: Array<{ label: string; value: string; proofFileOrSource: string }>;
   interactiveComponentId: 'requirements-matrix' | 'legal-precedents' | 'scrum-cockpit' | 'tech-scout' | 'hexagonal-ports' | 'data-topology' | 'project-tree' | 'devops-pipeline' | 'split-code' | 'git-workflow' | 'incidents' | 'adr-browser' | 'cloud-deploy' | 'golden-benchmark' | 'monitoring-trace' | 'defense-readiness' | 'generic';
 }
@@ -1029,6 +1040,17 @@ export const REBUILD_STAGES: RebuildStage[] = [
   {
     stageNumber: 1,
     id: 'stage-1',
+    titleFr: "La Demande Client & le Périmètre Légal",
+    subtitleFr: "Traduire le Code du Travail marocain en 16 Exigences d'Ingénierie Non Négociables",
+    phaseFr: "Cadrage",
+    executiveContextFr: "Une direction des ressources humaines et un service juridique au Maroc supervisent des milliers de contrats de travail régis par le Code du Travail (Dahir n° 1-03-194, Bulletin Officiel n° 5210). Chaque litige emporte de lourdes sanctions financières. Ils exigent un assistant automatisé fournissant des citations légales exactes sans hallucination ni fuite de données.",
+    coreProblemFr: "La recherche par mots-clés traditionnelle renvoie des centaines de résultats non triés exigeant des heures de lecture. Par ailleurs, les LLMs publics inventent des articles fictifs (comme 'Article 78 bis'), se trompent sur les calculs d'indemnités de l'Article 53 et transmettent des données salariales confidentielles à des serveurs cloud étrangers.",
+    solutionArchitectureFr: "Nous formalisons le besoin client en 16 exigences fonctionnelles non négociables (F-01 à F-16). Chaque exigence est adossée à un test automatisé dans le codebase, garantissant l'isolation multi-tenant, le refus honnête déterministe et des fiches de preuves cliquables.",
+    librarianAnalogyFr: {
+      "story": "Un directeur entre dans les archives centrales du Royaume. Il a 10 000 salariés et un traité de décrets royaux de 600 pages. Il ne peut pas tolérer un assistant qui devine le texte des lois, ni qui laisse traîner des fiches de paie confidentielles sur le comptoir public.",
+      "mapping": "Les archives = l'espace de travail d'entreprise. Les décrets royaux = le Code du Travail (Dahir 1-03-194). La séparation des visiteurs = le cloisonnement multi-tenant (F-01).",
+      "boundary": "Un archiviste humain peut s'épuiser ou oublier un amendement ; notre logiciel vérifie le hash de chaque document à chaque synchronisation et ne devine jamais."
+},
     title: 'The Client Request & Enterprise Legal Scope',
     subtitle: 'Translating Moroccan Labor Law into 16 Non-Negotiable Engineering Requirements',
     phase: 'Inception',
@@ -1053,6 +1075,17 @@ export const REBUILD_STAGES: RebuildStage[] = [
   {
     stageNumber: 2,
     id: 'stage-2',
+    titleFr: "Fondations de Recherche : Pourquoi les LLMs Bruts Échouent & le RAG s'Impose",
+    subtitleFr: "Preuves Empiriques d'Avianca, Air Canada et Stanford : Fine-Tuning vs RAG à Livre Ouvert",
+    phaseFr: "Cadrage",
+    executiveContextFr: "Avant d'écrire la moindre ligne de code, nous avons examiné la jurisprudence et les benchmarks évaluant les LLMs en droit. La conclusion est unanime : les modèles génératifs opérant sur leurs poids internes ne peuvent garantir l'exactitude factuelle, peu importe leur taille de paramètres.",
+    coreProblemFr: "Les poids synaptiques thêta stockent des probabilités d'enchaînement de mots, non des textes de lois vérifiables. En droit, un faux numéro d'article invalide l'analyse et engage la responsabilité civile de l'entreprise (Mata v. Avianca, Moffatt v. Air Canada).",
+    solutionArchitectureFr: "Nous adoptons le RAG régi par la norme ISO 24495-1:2023 de langage clair. Le LLM est privé de liberté créative : il agit strictement comme un greffier contraint par les passages extraits. Si les textes sont insuffisants, le système déclenche un refus honnête déterministe.",
+    librarianAnalogyFr: {
+      "story": "Deux étudiants passent l'examen du barreau. L'étudiant A a mémorisé des milliers de lois l'an passé mais n'a droit à aucun livre. L'étudiant B a le recueil officiel ouvert sur sa table, doit surligner la phrase exacte et noter le numéro de page à côté de chaque réponse.",
+      "mapping": "L'étudiant A = un LLM fine-tuné (poids flous, mémoire probabiliste). L'étudiant B = Sanad avec RAG (index exact, citations vérifiables).",
+      "boundary": "Si une loi est modifiée, l'étudiant A doit tout réapprendre de zéro. L'étudiant B insère simplement la nouvelle page dans son classeur."
+},
     title: 'Research Foundation: Why Raw LLMs Fail & Why RAG is Mandatory',
     subtitle: 'Empirical Evidence from Avianca, Air Canada & Stanford RegLab: Fine-Tuning vs Open-Book Retrieval',
     phase: 'Inception',
@@ -1077,6 +1110,17 @@ export const REBUILD_STAGES: RebuildStage[] = [
   {
     stageNumber: 3,
     id: 'stage-3',
+    titleFr: "Planification de Projet & Gouvernance Agile Scrum",
+    subtitleFr: "La Règle des 2 Architectes (YL & MB), la Loi de Revue n° 5 et la Cadence en 6 Sprints",
+    phaseFr: "Cadrage",
+    executiveContextFr: "Concevoir un système RAG juridique dans un calendrier académique strict exige une rigueur industrielle. Nous avons organisé le développement selon un cadre Agile Scrum adapté à un binôme d'ingénieurs, couplant rôles étanches et portes de qualité automatisées.",
+    coreProblemFr: "Sans garde-fous de relecture, les développeurs tombent dans le piège du bricolage isolé : un ingénieur pousse des modifications de prompts tard le soir, dégradant silencieusement les scores de fidélité et provoquant des erreurs en pleine démonstration.",
+    solutionArchitectureFr: "Nous avons instauré la Règle 5 de double revue obligatoire en CI/CD. Le travail a été découpé en 6 sprints de deux semaines (Sprints 0 à 6), encadrés par un coupe-circuit à 3 rollbacks : toute fonctionnalité instable est immédiatement rejetée.",
+    librarianAnalogyFr: {
+      "story": "Un avion de reconnaissance supersonique biplace : le pilote 1 gère les réacteurs, le carburant et la trajectoire. Le copilote 2 surveille le radar, valide les couloirs de vol et vérifie les règles de mission. Aucun ne peut faire feu sans tourner leurs deux clés simultanément.",
+      "mapping": "Pilote 1 = YL (Architecte Système : SQLite, Docker, Qdrant, Railway). Pilote 2 = MB (Gardienne Qualité : vérité Dahir, benchmark RAGAS, rigueur de thèse). La double clé = la Règle 5.",
+      "boundary": "Dans le logiciel, la double clé est un contrôle automatisé GitHub Actions (tests/review_rules.py) bloquant tout merge sans les deux signatures."
+},
     title: 'Project Planning & Agile Scrum Governance',
     subtitle: 'The 2-Person Architecture Split, Rule 5 Review Law & The 6-Sprint Production Cadence',
     phase: 'Inception',
@@ -1101,6 +1145,17 @@ export const REBUILD_STAGES: RebuildStage[] = [
   {
     stageNumber: 4,
     id: 'stage-4',
+    titleFr: "Sélection Technologique : Choix Retenus vs Rejetés",
+    subtitleFr: "Arbitrages d'Ingénierie avec Justifications Empiriques (Qdrant, E5, LangGraph, SQLite WAL)",
+    phaseFr: "Architecture",
+    executiveContextFr: "Chaque brique d'architecture a été sélectionnée après évaluation d'au moins trois alternatives. Les décisions obéissent à trois principes : empreinte mémoire minimale (<4Go RAM sur 2 vCPU), souveraineté des données et exécution locale déterministe.",
+    coreProblemFr: "Les équipes juniors choisissent souvent des piles surdimensionnées (Postgres + Milvus + Redis) saturant la mémoire avant même d'avoir ingéré un fichier, ou des chaînes linéaires incapables de réécrire les questions ambiguës.",
+    solutionArchitectureFr: "Nous avons retenu une pile légère et résiliente : Qdrant embarqué pour les vecteurs, SQLite WAL pour le relationnel, multilingual-e5-base pour les embeddings, LangGraph pour les cycles d'agent, et Jinja2 SSR pour le rendu HTML sub-50ms.",
+    librarianAnalogyFr: {
+      "story": "Choisir les outils de la bibliothèque : louer un entrepôt à l'autre bout de la ville (serveur Postgres), ou installer un coffre en acier sous le bureau qui s'ouvre en 1 milliseconde (SQLite WAL) ? Engager un traducteur distant par téléphone (API externe), ou former notre commis bilingue local (E5) ?",
+      "mapping": "Coffre en acier = SQLite en mode WAL. Commis local = multilingual-e5-base tournant sur CPU via ONNX.",
+      "boundary": "Un coffre a un volume limité ; SQLite sur système 64-bits stocke sans problème jusqu'à 140 téraoctets."
+},
     title: 'Technical Scouting: Selected vs. Rejected Stacks',
     subtitle: 'Comparative Engineering Trade-Offs with Empirical Justifications (Qdrant, E5, LangGraph, SQLite WAL)',
     phase: 'Blueprint',
@@ -1125,6 +1180,17 @@ export const REBUILD_STAGES: RebuildStage[] = [
   {
     stageNumber: 5,
     id: 'stage-5',
+    titleFr: "L'Architecture en 4 Piliers & les 8 Ports Hexagonaux",
+    subtitleFr: "Découplage Total de la Logique Métier via des Protocoles d'Appel Python Purs",
+    phaseFr: "Architecture",
+    executiveContextFr: "Pour éviter tout verrouillage technologique et autoriser des tests unitaires ultra-rapides, Sanad applique l'architecture hexagonale. Le raisonnement juridique communique exclusivement à travers 8 ports explicites dans agent/ports.py.",
+    coreProblemFr: "Importer directement des SDK tiers dans les fonctions métier crée un couplage fort. Les tests exigent des bases réelles et changer un magasin vectoriel oblige à modifier des dizaines de fichiers.",
+    solutionArchitectureFr: "Nous isolons le graphe derrière 8 ports : summarize, clarify, rewrite, retrieve, grade, reword, fetch_parents et write_answer. Aucun port n'a de valeur par défaut : un port manquant échoue bruyamment dès le démarrage au lieu d'inventer une réponse.",
+    librarianAnalogyFr: {
+      "story": "Un grand palais de justice avec 4 ailes : l'Aile 1 (Réception des livres bruts), l'Aile 2 (La Salle des Coffres scellée pour les textes et fiches), l'Aile 3 (La Salle d'Étude où les juristes débattent) et l'Aile 4 (Le Guichet Public où les citoyens posent leurs questions).",
+      "mapping": "Aile 1 = Pilier 1 (Ingestion). Aile 2 = Pilier 2 (Double Stockage). Aile 3 = Pilier 3 (Agent LangGraph). Aile 4 = Pilier 4 (FastAPI HTTP / UI).",
+      "boundary": "Si l'Aile 1 subit un incident de scanner, les Coffres et la Salle d'Étude restent scellés derrière des portes étanches et continuent d'opérer."
+},
     title: 'The 4-Pillar Architecture & 8 Hexagonal Ports',
     subtitle: 'Decoupling Core Domain Logic from External Services via Strict Python Protocol Interfaces',
     phase: 'Blueprint',
@@ -1149,6 +1215,17 @@ export const REBUILD_STAGES: RebuildStage[] = [
   {
     stageNumber: 6,
     id: 'stage-6',
+    titleFr: "Structures de Données & Topologie Parent-Enfant",
+    subtitleFr: "Schéma Relationnel 3NF, Suppressions en Cascade & Recherche Vectorielle Qdrant",
+    phaseFr: "Architecture",
+    executiveContextFr: "Le modèle de données de Sanad réconcilie deux exigences : l'intégrité relationnelle ACID pour les documents et pistes d'audit, et la recherche vectorielle de similarité cosinus haute performance.",
+    coreProblemFr: "Les systèmes RAG naïfs découpent à taille fixe (ex: 500 tokens). Si les fragments sont trop petits, le LLM perd le contexte des exceptions légales. S'ils sont trop grands, la précision vectorielle s'effondre.",
+    solutionArchitectureFr: "Topologie Parent-Enfant : de petits enfants de 200 tokens sont indexés dans Qdrant pour une similarité précise ; chaque hit référence parent_id pour extraire la section parente complète de 1 000 tokens dans SQLite. Tables 3NF avec ON DELETE CASCADE.",
+    librarianAnalogyFr: {
+      "story": "Le grand registre du bibliothécaire : chaque étagère a son code. Chaque livre a son empreinte. Si un livre est retiré, toutes ses fiches d'index sont automatiquement retirées des tiroirs d'un seul geste pour qu'aucun lecteur ne trouve une fiche pour un livre absent.",
+      "mapping": "Code d'étagère = workspace_id. Empreinte du livre = content_hash SHA-256. Retrait automatique = ON DELETE CASCADE. Fiches d'index = chunks enfants. Livre relié = section parente.",
+      "boundary": "Une bibliothèque met des heures à fouiller ses tiroirs ; Qdrant parcourt le graphe HNSW en moins de 5 millisecondes."
+},
     title: 'Data Structures & Schemas: SQLite 3NF & Qdrant Topology',
     subtitle: 'Relational Schemas, Cascading Keys & The Parent-Child Vector Topology',
     phase: 'Blueprint',
@@ -1173,6 +1250,17 @@ export const REBUILD_STAGES: RebuildStage[] = [
   {
     stageNumber: 7,
     id: 'stage-7',
+    titleFr: "Arborescence du Projet & Inventaire des Fichiers",
+    subtitleFr: "Visite Guidée des 28 Modules de Production et des 1 377 Tests Automatisés",
+    phaseFr: "Infrastructure",
+    executiveContextFr: "Sanad évite les monolithes désordonnés en structurant ses 28 modules Python dans 4 paquets découplés : pilotes racine, graphe d'agent, interface web en rendu serveur et banc d'évaluation. 1 377 tests protègent l'ensemble.",
+    coreProblemFr: "Les bases de code non structurées accumulent des dépendances circulaires et des effets de bord. Modifier une regex d'ingestion peut casser silencieusement l'historique de chat à cause d'imports croisés arbitraires.",
+    solutionArchitectureFr: "Encapsulation modulaire stricte : les pilotes racine gèrent les E/S et le stockage ; agent/ raisonne sur des dictionnaires d'états purs sans importer l'UI ; ui/ consomme les ports par injection ; evaluation/ tourne en CLI indépendante.",
+    librarianAnalogyFr: {
+      "story": "Le plan officiel du bâtiment : où se trouve le quai de déchargement, où sont rangés les tiroirs de fiches, quelles salles d'étude communiquent avec le bureau central et où les gardiens contrôlent les badges des visiteurs.",
+      "mapping": "Quai = conversion.py & sync.py. Tiroirs = vector_store.py & parent_store.py. Salles d'étude = paquet agent/. Guichet public = paquet ui/. Gardiens = ui/auth.py & tests/.",
+      "boundary": "Un bâtiment désordonné perd ses archives ; chaque fichier de Sanad a une responsabilité unique et son fichier de test attitré."
+},
     title: 'Project Layout & Complete File Inventory',
     subtitle: 'Architectural Tour of the 28 Production Modules and 1,377 Automated Tests',
     phase: 'Infrastructure',
@@ -1197,6 +1285,17 @@ export const REBUILD_STAGES: RebuildStage[] = [
   {
     stageNumber: 8,
     id: 'stage-8',
+    titleFr: "DevOps, Docker Multi-Stage & Hiérarchie de Tests",
+    subtitleFr: "Gestion Astral uv, Allègement PyTorch CPU (6Go à 450Mo) & la Pyramide de Tests en 4 Niveaux",
+    phaseFr: "Infrastructure",
+    executiveContextFr: "Le déploiement cloud sur petits serveurs impose un allègement radical des dépendances. L'installation standard de torch télécharge le runtime NVIDIA CUDA, gonflant l'image à 6 Go et causant des timeouts de build de 2h 46m.",
+    coreProblemFr: "Télécharger PyTorch depuis PyPI installe des gigaoctets de pilotes GPU inutilisables sur CPU. Réinstaller par-dessus dans une couche Docker ultérieure n'allège rien car les couches s'accumulent. De plus, Railway rejette les Dockerfiles avec l'instruction VOLUME.",
+    solutionArchitectureFr: "Dockerfile multi-stage : l'étape builder exporte uv.lock sans les lignes nvidia-*, puis installe PyTorch CPU depuis download.pytorch.org/whl/cpu. L'image finale ne copie que le venv épuré sous l'utilisateur sanad (UID 10001) sans instruction VOLUME. CI en 4 niveaux.",
+    librarianAnalogyFr: {
+      "story": "Charger la camionnette d'expédition : au lieu d'embarquer un treuil hydraulique de 6 tonnes conçu pour les mines profondes qui exige du courant industriel (CUDA GPU), on charge un treuil manuel léger de haute précision qui tourne partout à la force des bras (PyTorch CPU).",
+      "mapping": "Treuil de 6 tonnes = runtime GPU CUDA de 6 Go. Treuil léger = PyTorch CPU de 450 Mo épinglé dans uv.lock. La camionnette = Image Docker multi-stage.",
+      "boundary": "Le CPU prend 180ms pour encoder un lot de texte juridique, ce qui est imperceptible pour un utilisateur humain."
+},
     title: 'DevOps, Multi-Stage Docker, CI/CD & Testing Hierarchy',
     subtitle: 'Astral uv Packaging, PyTorch CPU Pruning (6GB down to 450MB) & The 4-Tier Testing Pyramid',
     phase: 'Infrastructure',
@@ -1221,6 +1320,17 @@ export const REBUILD_STAGES: RebuildStage[] = [
   {
     stageNumber: 9,
     id: 'stage-9',
+    titleFr: "Studio d'Inspection de Code & Rayon d'Impact",
+    subtitleFr: "Relecture Pas-à-Pas avec Surbrillance Néon, Estompage à 25% et Graphe de Dépendances",
+    phaseFr: "Studio Code",
+    executiveContextFr: "Lire du code brut sans contexte architectural engendre une surcharge cognitive. Ce studio offre une vue scindée synchronisée : le volet gauche surligne le bloc actif et estompe le reste à 25% ; le volet droit explique la logique en langage clair et cartographie le rayon d'impact.",
+    coreProblemFr: "Le code est interconnecté. Quand un développeur modifie un type de retour dans agent/nodes.py sans mesurer son rayon d'impact, les composants d'interface et d'évaluation plantent avec des erreurs d'attributs silencieuses.",
+    solutionArchitectureFr: "Studio interactif de code : coloration syntaxique intégrale, surbrillance dynamique du bloc actif, analyse détaillée des variables et types, et graphe interactif du rayon d'impact montrant les appelants, dépendances et tests de protection.",
+    librarianAnalogyFr: {
+      "story": "Le chef archiviste prend une loupe et guide l'apprenti tiroir par tiroir. Quand il explique un casier précis, toute la pièce s'assombrit pour que l'apprenti ne voie que le mécanisme en cours, tandis qu'une carte de ficelles au mur montre quelles étagères s'effondrent si le casier est déplacé.",
+      "mapping": "Loupe = surbrillance néon. Pièce assombrie = estompage à 25% du code inactif. Carte de ficelles = Graphe de rayon d'impact.",
+      "boundary": "Une bibliothèque a des liens humains souples ; en programmation, chaque import est une dépendance mathématique stricte."
+},
     title: 'Split-Screen Code Walkthrough Studio & Blast Radius Graph',
     subtitle: 'Step-by-Step Logic Inspection with Dynamic Dimming and Downstream Fallout Mapping',
     phase: 'Code Studio',
@@ -1245,6 +1355,17 @@ export const REBUILD_STAGES: RebuildStage[] = [
   {
     stageNumber: 10,
     id: 'stage-10',
+    titleFr: "Flux Git, Commits Conventionnels & Portes de Revue",
+    subtitleFr: "Protection de Branche Master, Commits Sémantiques & Checklist .github/pull_request_template.md",
+    phaseFr: "Revue & Choix",
+    executiveContextFr: "La collaboration entre YL et MB est régie par un protocole Git strict. Toutes les fusions sur master sont obligatoirement en squash, titrées selon Conventional Commits (feat: ST-nn <résumé>) et validées sur la checklist en 5 points.",
+    coreProblemFr: "Sans contrôle de branche, des commits vagues ('fix') ou des modifications de prompts non relues court-circuitent les tests. Des fichiers de données ou des secrets peuvent être accidentellement ajoutés au dépôt.",
+    solutionArchitectureFr: "Protection de branche GitHub sur master : exige la réussite de la CI (gate.yml), zéro mention d'assistant IA (Règle 4), respect de pull_request_template.md et double signature des deux architectes (YL système + MB qualité).",
+    librarianAnalogyFr: {
+      "story": "Le registre officiel des sceaux : pour insérer une nouvelle page dans le livre de lois, l'archiviste doit présenter un bordereau portant 5 sceaux de cire : vérification du texte, conformité du vocabulaire, signatures des deux magistrats et absence de notes privées.",
+      "mapping": "Bordereau aux 5 sceaux = checklist pull_request_template.md. Les deux magistrats = YL et MB. Le grand livre = branche master.",
+      "boundary": "Les sceaux de cire peuvent être falsifiés ; les signatures Git et les règles de branche sont inviolables."
+},
     title: 'Git Workflow, Conventional Commits & Review Gates',
     subtitle: 'Rule 5 Branch Protection, Conventional Commits & .github/pull_request_template.md',
     phase: 'Review & Decisions',
@@ -1269,6 +1390,17 @@ export const REBUILD_STAGES: RebuildStage[] = [
   {
     stageNumber: 11,
     id: 'stage-11',
+    titleFr: "Incidents de Production Réels & Retours d'Expérience",
+    subtitleFr: "5 Pannes Résolues : Verrous SQLite, Décalage de Vecteurs, Préfixe E5, Dépassement Mémoire & BOLA",
+    phaseFr: "Revue & Choix",
+    executiveContextFr: "L'ingénierie senior se mesure à la façon dont les pannes réelles sont disséquées et définitivement résolues. Durant la conception de Sanad, cinq incidents majeurs ont été rencontrés sur la concurrence, les vecteurs, les embeddings, la mémoire et la sécurité.",
+    coreProblemFr: "Les développeurs débutants masquent souvent les pannes avec des expédients temporaires (time.sleep, augmentation aveugle de RAM). Cela laisse intactes les conditions de course, garantissant un crash lors de la présentation devant le jury.",
+    solutionArchitectureFr: "Diagnostic à la racine et garde-fous permanents : mode WAL + busy_timeout=5000 pour SQLite ; assertions de dimensions vectorielles ; décorateurs automatiques de préfixe E5 ; streaming d'OCR avec mutex unique ; et réponses 404 silencieuses pour BOLA.",
+    librarianAnalogyFr: {
+      "story": "Le carnet des incidents de l'archive : le jour où le tiroir s'est coincé car deux commis tiraient dessus ensemble (database is locked) ; le jour où les fiches coupées à la mauvaise dimension ont fait dérailler la machine de tri (décalage vectoriel) ; et le jour où un commis a confirmé à un intrus qu'une salle privée existait (fuite BOLA).",
+      "mapping": "Tiroir coincé = contention de verrou SQLite. Machine de tri déraillée = décalage 384d vs 1024d dans Qdrant. Intrus renseigné = fuite d'existence par HTTP 403.",
+      "boundary": "Une bibliothèque s'excuse auprès du visiteur ; un système informatique ajoute un test de non-régression automatisé qui rend l'erreur impossible à reproduire."
+},
     title: 'Real Incidents & Production Post-Mortems',
     subtitle: '5 Documented Obstacles: SQLite Locks, Dimension Mismatches, E5 Prefixes, OOM Scans & BOLA Leaks',
     phase: 'Review & Decisions',
@@ -1294,6 +1426,17 @@ export const REBUILD_STAGES: RebuildStage[] = [
   {
     stageNumber: 12,
     id: 'stage-12',
+    titleFr: "Fiches de Décisions d'Architecture (Les 20 ADRs)",
+    subtitleFr: "Traçabilité des Choix Structurants, Alternatives Rejetées et Conséquences (docs/journal/DECISIONS.md)",
+    phaseFr: "Revue & Choix",
+    executiveContextFr: "Chaque choix structurant de Sanad est consigné dans docs/journal/DECISIONS.md au format ADR : Date, Tâche, Décision, Options évaluées, Motif du choix, Conséquences et Responsable. Cela garantit une traçabilité totale pour la soutenance.",
+    coreProblemFr: "Sans traçabilité écrite, les équipes souffrent d'amnésie collective. Des mois plus tard, un développeur annule un compromis délibéré (remplacer SQLite WAL par un ORM lourd) car il ignorait les raisons du choix initial.",
+    solutionArchitectureFr: "20 fiches d'ADR couvrant les ports hexagonaux (ADR-001), Jinja2 SSR (ADR-002), la mémoire résumée (ADR-003), la fusion RRF (ADR-005), Astral uv (ADR-010), SQLite WAL (ADR-011), le benchmark doré (ADR-012) et LangGraph (ADR-019).",
+    librarianAnalogyFr: {
+      "story": "Le conseil des magistrats consigne chaque grande décision dans le Livre des Décrets : pourquoi la bibliothèque a choisi des coffres de pierre plutôt que de bois, et pourquoi les fiches sont rédigées à l'encre indélébile. Trois ans plus tard, la justification reste incontestable.",
+      "mapping": "Livre des Décrets = docs/journal/DECISIONS.md. Entrées = ADR-001 à ADR-020.",
+      "boundary": "Les décrets politiques changent avec les régimes ; les ADR techniques reposent sur des preuves et des mesures empiriques."
+},
     title: 'Architectural Decisions: The 20 ADRs',
     subtitle: 'Structured Decision Records Documenting Context, Trade-Offs, and Consequences (ADR-001 to ADR-020)',
     phase: 'Review & Decisions',
@@ -1318,6 +1461,17 @@ export const REBUILD_STAGES: RebuildStage[] = [
   {
     stageNumber: 13,
     id: 'stage-13',
+    titleFr: "Déploiement Cloud sur Railway & Démarrage Fail-Fast",
+    subtitleFr: "Exécution Non-Root, Montage Persistant /app/data, Sonde /healthz Sub-50ms et Validation Pydantic",
+    phaseFr: "Production",
+    executiveContextFr: "Le déploiement en production sur Railway requiert une haute résilience cloud. Sanad s'exécute sous l'utilisateur non privilégié sanad (UID 10001), écoute sur $PORT, persiste SQLite et Qdrant sur /app/data, et répond aux sondes /healthz en moins de 50ms.",
+    coreProblemFr: "Les déploiements cloud fragiles perdent leurs données lors des redémarrages (stockage éphémère), ont des sondes de santé lentes provoquant des redémarrages en boucle, ou démarrent avec des secrets manquants pour planter plus tard en pleine requête utilisateur.",
+    solutionArchitectureFr: "Configuration cloud Railway : volume persistant monté à /app/data, sonde de disponibilité /healthz répondant en moins de 50ms, et validation Pydantic BaseSettings bloquante dès la première ligne de code au boot.",
+    librarianAnalogyFr: {
+      "story": "La bibliothèque ouvre une succursale au château royal. Au lieu de maçonner des murs sur la terrasse, ils amarrent une calèche capitonnée qui se branche sur le courant du château ($PORT), s'arrime à un coffre de fondation scellé (/app/data) et dispose d'un garde qui frappe à la porte chaque minute (/healthz).",
+      "mapping": "Calèche capitonnée = conteneur Docker. Coffre scellé = volume persistant Railway. Garde frappant à la porte = sonde /healthz. Alerte de clé manquante = arrêt immédiat Pydantic exit 1.",
+      "boundary": "Une calèche peut rouler ailleurs ; dans le cloud, sans volume attaché, la base de données disparaît à chaque redéploiement."
+},
     title: 'Railway Cloud Deployment & Fail-Fast Boot',
     subtitle: 'Non-Root Execution, /app/data Persistent Mounts, Sub-50ms /healthz & Pydantic Validation',
     phase: 'Production',
@@ -1342,6 +1496,17 @@ export const REBUILD_STAGES: RebuildStage[] = [
   {
     stageNumber: 14,
     id: 'stage-14',
+    titleFr: "Évaluation Quantitative & le Benchmark Doré",
+    subtitleFr: "Jeu de Test Gelé de 60 Questions, Triade RAGAS (Fidélité >= 0.90) et le Videur de Release",
+    phaseFr: "Production",
+    executiveContextFr: "Sanad mesure sa précision par une évaluation scientifique automatisée plutôt que par des essais subjectifs. Le benchmark doré de 60 questions (evaluation/golden.py) teste 40 questions dans le périmètre et 20 questions hors périmètre sur la triade RAGAS.",
+    coreProblemFr: "Tester 'au jugé' garantit les régressions. Un développeur ajuste un prompt pour une question et provoque sans le savoir des hallucinations sur 15 autres. Sans porte automatisée, des versions dégradées partent en production.",
+    solutionArchitectureFr: "Exécuteur automatisé (scripts/run_evaluation.py) et videur de release (scripts/release_gate.py) appliquant 3 seuils non négociables : Porte 1 (Fidélité >= 0.90), Porte 2 (Refus = 100%), et Porte 3 (Citations présentes sur 100% des réponses).",
+    librarianAnalogyFr: {
+      "story": "L'examen d'État pour interprètes judiciaires : exactement 60 questions officielles. 40 questions portent sur des lois réelles à citer ; 20 questions portent sur des lois imaginaires que l'étudiant DOIT refuser de traiter. Inventer une seule réponse entraîne l'échec immédiat à l'examen.",
+      "mapping": "60 questions = evaluation/golden.py. 40 lois réelles = in_scope. 20 lois imaginaires = out_of_scope. Échec automatique = Videur de release (gate.py).",
+      "boundary": "Un examinateur humain peut accorder des points pour le style ; notre algorithme de porte est intraitable avec les hallucinations."
+},
     title: 'Quantitative Evaluations & The Golden Benchmark',
     subtitle: '60-Question Frozen Benchmark, RAGAS Triad (Faithfulness >= 0.90) & The Release Gate Bouncer',
     phase: 'Production',
@@ -1366,6 +1531,17 @@ export const REBUILD_STAGES: RebuildStage[] = [
   {
     stageNumber: 15,
     id: 'stage-15',
+    titleFr: "Observabilité, Traçabilité Opérationnelle & Retours Usagers",
+    subtitleFr: "Collecteur de Traces Interne (agent/trace.py), Journal d'Audit SQLite (p50/p95) et Retours Idempotents",
+    phaseFr: "Production",
+    executiveContextFr: "L'observabilité en production doit respecter la souveraineté des données. Sanad utilise un collecteur interne sans transmission à des services tiers, traçant la latence par nœud, la consommation de tokens, les percentiles et les avis utilisateurs.",
+    coreProblemFr: "Les outils d'observabilité SaaS externes (Datadog, LangSmith) transmettent les questions des salariés et les extraits juridiques à des serveurs distants, violant le secret professionnel et la loi 09-08.",
+    solutionArchitectureFr: "Collecteur de traces in-process dans agent/trace.py : la trace EST le compteur (zéro état dupliqué). Chaque réponse consigne la latence étape par étape et les recherches menées. SQLite stocke les retours utilisateurs (answer_feedback) par écritures idempotentes.",
+    librarianAnalogyFr: {
+      "story": "Le registre du chef archiviste et la boîte aux lettres des lecteurs : chaque recherche est notée avec le nombre de minutes passées et les tiroirs ouverts. Sur chaque réponse, le visiteur peut cocher 'Utile' ou 'Inexact'. L'archiviste dépouille la boîte chaque semaine.",
+      "mapping": "Registre de recherche = agent/trace.py. Liste des tiroirs = étapes StepKind. Boîte aux lettres = table answer_feedback avec UPSERT idempotent.",
+      "boundary": "Des bulletins papier peuvent être perdus ou falsifiés ; SQLite garantit l'unicité par answer_key."
+},
     title: 'Monitoring, Operational Tracing & User Feedback',
     subtitle: 'In-Process Trace Collector (agent/trace.py), SQLite Audit Logs (p50/p95) & Idempotent Feedback',
     phase: 'Production',
@@ -1390,6 +1566,17 @@ export const REBUILD_STAGES: RebuildStage[] = [
   {
     stageNumber: 16,
     id: 'stage-16',
+    titleFr: "Évolution, Versionnage Sémantique & Prêt pour la Soutenance",
+    subtitleFr: "De la v1.0.0 à la v3.1.0 : SemVer du Registre de Prompts, Évolution de Schémas & Autorisation de Thèse",
+    phaseFr: "Production",
+    executiveContextFr: "L'aboutissement du projet : la transition de Sanad à travers 6 sprints agiles jusqu'à la version de production 3.1.0, adossée au versionnage sémantique des prompts, à des schémas sans verrou et à la validation de la suite de soutenance.",
+    coreProblemFr: "Les projets d'étudiants échouent souvent le jour J : une migration non testée casse la base le matin de l'examen, ou un prompt non épinglé invente des décrets devant le jury.",
+    solutionArchitectureFr: "Progression SemVer stricte (v1.0.0 ingestion de base -> v3.1.0 système souverain). Prompts versionnés dans prompts/ avec étiquettes sémantiques. Exécution verte de l'ensemble de la suite (1 377 tests, release_gate.py) délivrant l'Autorisation Officielle de Soutenance.",
+    librarianAnalogyFr: {
+      "story": "Le grand jour de la remise des diplômes : les apprentis présentent l'archive royale terminée devant le conseil des professeurs de l'université. Chaque livre porte son sceau de révision, et quand les jurés posent des questions pièges, les étudiants déclenchent le test de vérification et démontrent 100% de voyants verts.",
+      "mapping": "Sceau de révision = Versionnage sémantique (v1.0.0 à v3.1.0). Diplôme officiel = Certificat de Soutenance. Test de vérification = release_gate.py.",
+      "boundary": "Une présentation orale peut masquer des faiblesses ; une soutenance d'ingénierie s'appuie sur des portes de tests mathématiquement vérifiables."
+},
     title: 'Upgrades, Semantic Versioning & Thesis Defense Readiness',
     subtitle: 'From v1.0.0 to v3.1.0: Prompt Registry SemVer, Zero-Downtime DB Evolution & Academic Defense Clearance',
     phase: 'Production',

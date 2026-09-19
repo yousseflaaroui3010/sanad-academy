@@ -200,7 +200,7 @@ export function App() {
         </div>
       ) : currentTab === 'rebuild' ? (
         <div className="flex-1 w-full px-4 sm:px-8 py-4">
-          <RebuildStagesView lang={lang} />
+          <RebuildStagesView lang={lang} onOpenCertificate={() => setIsCertificateOpen(true)} />
         </div>
       ) : (
         <div className="flex-1 flex px-4 sm:px-8 py-4 max-w-7xl mx-auto w-full gap-8">

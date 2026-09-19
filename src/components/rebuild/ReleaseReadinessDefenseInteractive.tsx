@@ -4,9 +4,10 @@ import { playHapticClick, playSuccessChime } from '../../utils/soundEffects';
 
 interface Props {
   lang?: 'en' | 'fr';
+  onOpenCertificate?: () => void;
 }
 
-export const ReleaseReadinessDefenseInteractive: React.FC<Props> = ({ lang: _lang = 'en' }) => {
+export const ReleaseReadinessDefenseInteractive: React.FC<Props> = ({ lang: _lang = 'en', onOpenCertificate }) => {
   const [isRunningVerification, setIsRunningVerification] = useState(false);
   const [isCleared, setIsCleared] = useState(false);
 
@@ -109,6 +110,19 @@ export const ReleaseReadinessDefenseInteractive: React.FC<Props> = ({ lang: _lan
                   <span>Signatures: Youssef LAAROUI (YL) &amp; Meriem BENAATIT (MB)</span>
                   <span>Exit Code 0</span>
                 </div>
+
+                {onOpenCertificate && (
+                  <button
+                    onClick={() => {
+                      onOpenCertificate();
+                      playHapticClick();
+                    }}
+                    className="w-full mt-2 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs shadow-xs transition active:scale-95"
+                  >
+                    <Award size={14} />
+                    <span>{_lang === 'fr' ? 'Consulter & Imprimer le Certificat Officiel' : 'View & Print Official Defense Certificate'}</span>
+                  </button>
+                )}
               </div>
             )}
           </div>

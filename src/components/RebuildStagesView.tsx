@@ -18,6 +18,7 @@ import { RailwayCloudDeploymentInteractive } from './rebuild/RailwayCloudDeploym
 import { GoldenBenchmarkRunnerInteractive } from './rebuild/GoldenBenchmarkRunnerInteractive';
 import { MonitoringTracingInteractive } from './rebuild/MonitoringTracingInteractive';
 import { ReleaseReadinessDefenseInteractive } from './rebuild/ReleaseReadinessDefenseInteractive';
+import { WorkedExampleFlowInteractive } from './rebuild/WorkedExampleFlowInteractive';
 import { AudioPlayer } from './AudioPlayer';
 import {
   ChevronLeft,
@@ -36,13 +37,15 @@ import { playHapticClick, playSlideSwoosh } from '../utils/soundEffects';
 
 interface Props {
   lang?: 'en' | 'fr';
+  onOpenCertificate?: () => void;
 }
 
-export const RebuildStagesView: React.FC<Props> = ({ lang = 'en' }) => {
+export const RebuildStagesView: React.FC<Props> = ({ lang = 'en', onOpenCertificate }) => {
   const [currentStageIdx, setCurrentStageIdx] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isAudioOpen, setIsAudioOpen] = useState(false);
+  const [isWorkedExampleOpen, setIsWorkedExampleOpen] = useState(false);
   const [activeLang, setActiveLang] = useState<'en' | 'fr'>(lang);
   const [autoPlayAudio] = useState(false);
 
@@ -149,7 +152,7 @@ export const RebuildStagesView: React.FC<Props> = ({ lang = 'en' }) => {
       case 'monitoring-trace':
         return <MonitoringTracingInteractive lang={activeLang} />;
       case 'defense-readiness':
-        return <ReleaseReadinessDefenseInteractive lang={activeLang} />;
+        return <ReleaseReadinessDefenseInteractive lang={activeLang} onOpenCertificate={onOpenCertificate} />;
       default:
         return null;
     }
@@ -161,17 +164,19 @@ export const RebuildStagesView: React.FC<Props> = ({ lang = 'en' }) => {
       {/* Stage Header Info */}
       <div className="space-y-2 text-left">
         <div className="flex items-center gap-2 text-xs font-semibold text-[#86868b]">
-          <span className="text-blue-600 font-bold uppercase tracking-wider">{stage.phase}</span>
+          <span className="text-blue-600 font-bold uppercase tracking-wider">
+            {activeLang === 'fr' && stage.phaseFr ? stage.phaseFr : stage.phase}
+          </span>
           <span>•</span>
-          <span>Stage {stage.stageNumber} of 16</span>
+          <span>{activeLang === 'fr' ? `Étape ${stage.stageNumber} sur 16` : `Stage ${stage.stageNumber} of 16`}</span>
           <span>•</span>
           <span className="font-mono text-purple-600 font-bold">Voice: {voiceover.speaker}</span>
         </div>
         <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-[#1d1d1f]">
-          {stage.title}
+          {activeLang === 'fr' && stage.titleFr ? stage.titleFr : stage.title}
         </h1>
         <p className="text-sm sm:text-base text-[#6e6e73] font-medium">
-          {stage.subtitle}
+          {activeLang === 'fr' && stage.subtitleFr ? stage.subtitleFr : stage.subtitle}
         </p>
       </div>
 
@@ -200,13 +205,17 @@ export const RebuildStagesView: React.FC<Props> = ({ lang = 'en' }) => {
           </div>
           <div className="space-y-1 flex-1">
             <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600">
-              The Librarian Thread Analogy (ISO 24495-1 Plain Language)
+              {activeLang === 'fr'
+                ? "L'Analogie du Fil Conducteur de la Bibliothécaire (ISO 24495-1 Langage Clair)"
+                : 'The Librarian Thread Analogy (ISO 24495-1 Plain Language)'}
             </span>
             <h2 className="text-base sm:text-xl font-bold text-[#1d1d1f]">
-              How to Explain This Stage to a Child or Academic Jury
+              {activeLang === 'fr'
+                ? "Comment Expliquer cette Étape à un Enfant ou au Jury de Soutenance"
+                : 'How to Explain This Stage to a Child or Academic Jury'}
             </h2>
             <p className="text-sm text-[#424245] leading-relaxed pt-1 font-medium">
-              "{stage.librarianAnalogy.story}"
+              "{activeLang === 'fr' && stage.librarianAnalogyFr ? stage.librarianAnalogyFr.story : stage.librarianAnalogy.story}"
             </p>
           </div>
         </div>
@@ -215,20 +224,20 @@ export const RebuildStagesView: React.FC<Props> = ({ lang = 'en' }) => {
           <div className="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200/60 space-y-1">
             <div className="flex items-center gap-1.5 text-blue-700 text-xs font-bold uppercase tracking-wider">
               <Eye size={13} />
-              <span>Exact Software Mapping</span>
+              <span>{activeLang === 'fr' ? 'Correspondance Logicielle Exacte' : 'Exact Software Mapping'}</span>
             </div>
             <p className="text-xs text-[#424245] leading-relaxed">
-              {stage.librarianAnalogy.mapping}
+              {activeLang === 'fr' && stage.librarianAnalogyFr ? stage.librarianAnalogyFr.mapping : stage.librarianAnalogy.mapping}
             </p>
           </div>
 
           <div className="p-3.5 rounded-2xl bg-rose-50/70 border border-rose-200/60 space-y-1">
             <div className="flex items-center gap-1.5 text-rose-700 text-xs font-bold uppercase tracking-wider">
               <Scale size={13} />
-              <span>Where the Analogy Stops</span>
+              <span>{activeLang === 'fr' ? "Où s'Arrête l'Analogie" : 'Where the Analogy Stops'}</span>
             </div>
             <p className="text-xs text-[#424245] leading-relaxed">
-              {stage.librarianAnalogy.boundary}
+              {activeLang === 'fr' && stage.librarianAnalogyFr ? stage.librarianAnalogyFr.boundary : stage.librarianAnalogy.boundary}
             </p>
           </div>
         </div>
@@ -239,20 +248,24 @@ export const RebuildStagesView: React.FC<Props> = ({ lang = 'en' }) => {
         <div className="liquid-glass rounded-3xl p-5 sm:p-6 space-y-2 border-amber-500/30">
           <div className="flex items-center gap-2 text-amber-600">
             <Flame size={16} />
-            <h3 className="text-xs font-bold uppercase tracking-wider">The Real Circumstances & Stakes</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider">
+              {activeLang === 'fr' ? 'Contexte Réel & Enjeux de Terrain' : 'The Real Circumstances & Stakes'}
+            </h3>
           </div>
           <p className="text-xs sm:text-sm text-[#424245] leading-relaxed">
-            {stage.executiveContext}
+            {activeLang === 'fr' && stage.executiveContextFr ? stage.executiveContextFr : stage.executiveContext}
           </p>
         </div>
 
         <div className="liquid-glass rounded-3xl p-5 sm:p-6 space-y-2 border-rose-500/30">
           <div className="flex items-center gap-2 text-rose-600">
             <Scale size={16} />
-            <h3 className="text-xs font-bold uppercase tracking-wider">The Failure Mode (What Blows Up)</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider">
+              {activeLang === 'fr' ? 'Le Mode de Défaillance (Ce qui Échoue)' : 'The Failure Mode (What Blows Up)'}
+            </h3>
           </div>
           <p className="text-xs sm:text-sm text-[#424245] leading-relaxed">
-            {stage.coreProblem}
+            {activeLang === 'fr' && stage.coreProblemFr ? stage.coreProblemFr : stage.coreProblem}
           </p>
         </div>
       </div>
@@ -261,7 +274,7 @@ export const RebuildStagesView: React.FC<Props> = ({ lang = 'en' }) => {
       <div className="space-y-3 text-left">
         <div className="flex items-center justify-between">
           <span className="text-xs font-bold uppercase tracking-wider text-[#6e6e73] block">
-            Stage {stage.stageNumber} Interactive Inspection Sandbox
+            {activeLang === 'fr' ? `Bac à Sable d'Inspection Interactive (Étape ${stage.stageNumber})` : `Stage ${stage.stageNumber} Interactive Inspection Sandbox`}
           </span>
           <span className="text-[11px] font-mono text-[#86868b]">
             Live RAG_project_ENSA Invariants
@@ -274,10 +287,10 @@ export const RebuildStagesView: React.FC<Props> = ({ lang = 'en' }) => {
       <div className="liquid-glass rounded-3xl p-6 sm:p-8 space-y-3 border-emerald-500/20 text-left">
         <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs uppercase tracking-wider">
           <ShieldCheck size={16} />
-          <span>The Engineering Solution Architecture</span>
+          <span>{activeLang === 'fr' ? "Architecture de la Solution d'Ingénierie" : 'The Engineering Solution Architecture'}</span>
         </div>
         <p className="text-sm text-[#424245] leading-relaxed">
-          {stage.solutionArchitecture}
+          {activeLang === 'fr' && stage.solutionArchitectureFr ? stage.solutionArchitectureFr : stage.solutionArchitecture}
         </p>
       </div>
     </div>
@@ -336,6 +349,20 @@ export const RebuildStagesView: React.FC<Props> = ({ lang = 'en' }) => {
                 FR
               </button>
             </div>
+
+            {/* Worked Example (R-09) Trigger */}
+            <button
+              onClick={() => setIsWorkedExampleOpen(!isWorkedExampleOpen)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition border shadow-xs ${
+                isWorkedExampleOpen
+                  ? 'bg-amber-600 text-white border-amber-600'
+                  : 'bg-white/80 text-[#1d1d1f] border-black/10 hover:bg-white'
+              }`}
+              title="Trace Worked Legal Example (Rule R-09)"
+            >
+              <Scale size={13} />
+              <span className="hidden sm:inline">Worked Example (Art. 43)</span>
+            </button>
 
             {/* Voiceover Button */}
             <button
@@ -446,6 +473,11 @@ export const RebuildStagesView: React.FC<Props> = ({ lang = 'en' }) => {
           className="flex-1 w-full overflow-y-auto overflow-x-hidden px-4 sm:px-8 py-4"
         >
           <div className="w-full max-w-5xl mx-auto min-h-full flex flex-col justify-center py-4">
+            {isWorkedExampleOpen && (
+              <div className="mb-6 animate-in fade-in duration-300">
+                <WorkedExampleFlowInteractive lang={activeLang} />
+              </div>
+            )}
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentStageIdx}
@@ -539,6 +571,18 @@ export const RebuildStagesView: React.FC<Props> = ({ lang = 'en' }) => {
           </button>
 
           <button
+            onClick={() => setIsWorkedExampleOpen(!isWorkedExampleOpen)}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition border shadow-xs ${
+              isWorkedExampleOpen
+                ? 'bg-amber-600 text-white border-amber-600'
+                : 'bg-white text-[#1d1d1f] border-black/10 hover:bg-black/5'
+            }`}
+          >
+            <Scale size={13} />
+            <span>{isWorkedExampleOpen ? 'Hide Worked Example' : 'Worked Example (Art. 43)'}</span>
+          </button>
+
+          <button
             onClick={() => setIsAudioOpen(!isAudioOpen)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition border shadow-xs ${
               isAudioOpen
@@ -557,6 +601,20 @@ export const RebuildStagesView: React.FC<Props> = ({ lang = 'en' }) => {
           <span>Stage {currentStageIdx + 1} of 16</span>
         </div>
       </div>
+
+      {/* Collapsible Worked Example (Rule R-09) */}
+      <AnimatePresence>
+        {isWorkedExampleOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <WorkedExampleFlowInteractive lang={activeLang} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Collapsible Audio Voiceover Companion */}
       <AnimatePresence>
