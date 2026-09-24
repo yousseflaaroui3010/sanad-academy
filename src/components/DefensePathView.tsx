@@ -283,6 +283,37 @@ export const DefensePathView: React.FC<DefensePathViewProps> = ({ lang }) => {
               </section>
             )}
 
+            {/* 0. Words first, then the whole picture as a story */}
+            {node.glossary && node.glossary.length > 0 && (
+              <section className="liquid-glass rounded-3xl p-5 sm:p-6 space-y-3">
+                <SectionTitle icon={<BookOpenCheck size={14} />} text={fr ? '0 · Les mots à connaître d’abord' : '0 · Words you need first'} />
+                <p className="text-xs text-[#6e6e73]">
+                  {fr
+                    ? 'Lis ces mots avant l’explication. Chaque mot a un sens simple et un exemple.'
+                    : 'Read these before the explanation. Each word has a plain meaning and an example.'}
+                </p>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {node.glossary.map((g) => (
+                    <div key={g.term} className="rounded-2xl bg-white/80 border border-black/5 p-3 space-y-1">
+                      <p className="text-sm font-bold text-blue-700">{g.term}</p>
+                      <p className="text-xs text-[#1d1d1f]">{g.plain}</p>
+                      <p className="text-xs text-[#6e6e73] italic">
+                        {fr ? 'Exemple : ' : 'Example: '}
+                        {g.example}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {node.story && (
+              <section className="rounded-3xl p-5 sm:p-6 space-y-2 bg-amber-50/80 border border-amber-200/70">
+                <SectionTitle icon={<Mountain size={14} />} text={fr ? 'Toute l’image, en une histoire' : 'The whole picture, as a story'} />
+                <div className="text-sm text-[#1d1d1f] leading-relaxed whitespace-pre-line">{node.story}</div>
+              </section>
+            )}
+
             {/* 2. Teach */}
             <section className="liquid-glass rounded-3xl p-5 sm:p-6 space-y-4">
               <SectionTitle icon={<Target size={14} />} text={fr ? '2 · L’idée' : '2 · The idea'} />

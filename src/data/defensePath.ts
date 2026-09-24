@@ -27,6 +27,9 @@ export interface PathNode {
   code: { file: string; what: string }[];
   sayItFr: string;
   gates: CoachExercise[];
+  // Beginner layer: every technical word explained before it is used.
+  glossary?: { term: string; plain: string; example: string }[];
+  story?: string;
 }
 
 export interface PathStage {
@@ -132,18 +135,27 @@ export const DEFENSE_PATH: PathNode[] = [
     slides: [1, 3],
     oneLiner: 'Why a chat assistant that answers without a source is dangerous, and where the real answer lives.',
     needs: 'Nothing.',
-    explain: `A large language model (LLM) such as Gemini or ChatGPT is a text predictor. It was trained on huge amounts of text and learned which words usually follow which. When you ask it something, it writes the most plausible continuation. It does not open a book or check a database.
+    glossary: [
+      { term: "AI model / LLM (Large Language Model)", plain: "A computer program that has read a huge amount of text and learned to write like a human. ChatGPT and Gemini are LLMs. \"Large\" = it learned from billions of sentences.", example: "You type \"Le congé de maternité dure…\" and it continues \"…14 semaines\" because it has seen that pattern many times." },
+      { term: "Predict / prediction", plain: "Guessing what comes next. An LLM writes one word at a time by guessing the most likely next word.", example: "Your phone keyboard suggests \"demain\" after you type \"à\". An LLM does the same, but much better and for whole paragraphs." },
+      { term: "Plausible", plain: "Sounds right. It does NOT mean it is right.", example: "\"The trial period for a manager is 6 months\" sounds plausible. In Morocco it is 3 months (renewable once)." },
+      { term: "Hallucination", plain: "When an AI says something false but in a confident, convincing way. It is not lying on purpose; it is guessing and the guess is wrong.", example: "ChatGPT invented 6 court decisions with names and dates. None existed." },
+      { term: "Source / citation", plain: "The exact place where a fact comes from: which document, which article, which page. It lets you check.", example: "\"Article 14 of the Code du travail, page 12\" is a source. \"I read it somewhere\" is not." },
+      { term: "Corpus / documents", plain: "The collection of documents the assistant is allowed to use. For SANAD's demo: the Moroccan Code du travail and a few HR texts.", example: "Think of it as the shelf of books you're allowed to open during an exam." },
+    ],
+    story: "Imagine you hire a very smooth talker as your assistant. He has read thousands of books, but he never opens a book when you ask him something. He answers from memory, always confidently, even when his memory is wrong. Most of the time he is right. Sometimes he invents, and you can't tell the difference because he sounds just as sure.\n\nThat is ChatGPT without sources.\n\nNow imagine a second assistant. Before answering, she goes to YOUR bookshelf, opens the right book, reads the right page, and answers while pointing at the line: \"It's here, Article 14.\" If the answer isn't on your shelf, she says: \"I didn't find it in your documents.\" She never guesses.\n\nThat second assistant is SANAD.",
+    explain: `An AI like ChatGPT or Gemini is called an LLM (Large Language Model). It learned by reading billions of sentences. When you ask it something, it doesn't search anything. It writes the answer word by word, each time choosing the word that "usually comes next". That's all it does: predict the next word.
 
-Most of the time plausible and true coincide. When they don't, the model still writes smoothly and confidently. That is called a hallucination: a fluent answer that is not supported by any source.
+Most of the time, the most likely words are also true. But not always. When the model doesn't really know, it still writes something that sounds right. This is called a hallucination: a confident answer that is false.
 
-Slide 3 shows three real cases:
-• New York, 2023: lawyers filed six court decisions that ChatGPT had invented. They were sanctioned.
-• Air Canada, 2024: the airline's chatbot invented a refund rule, and a tribunal forced the company to honour it.
-• Stanford, 2024: even paid legal research tools built on retrieval gave wrong or badly sourced answers about 1 time in 6 (the report says 1/6 to 1/3, p.16).
+Three real examples (slide 3):
+• New York, 2023: lawyers used ChatGPT to prepare a court file. It invented 6 court decisions. The lawyers gave them to the judge, the decisions didn't exist, and the lawyers were punished.
+• Air Canada, 2024: the airline's website chatbot invented a refund rule. A customer believed it. A tribunal said "your chatbot said it, so you must pay".
+• Stanford, 2024: researchers tested paid legal AI tools. About 1 answer in 6 was wrong or pointed to the wrong source.
 
-Meanwhile the true answer usually sits in the team's own documents. The Moroccan Code du travail has 589 articles in 7 books. A simple HR question ("how long is a manager's trial period?") can take an hour to find by hand.
+The problem for a company: the right answer already exists in its own documents. For example, the Moroccan Code du travail has 589 articles in 7 books. An HR employee who wants to know "how long is the trial period for a manager?" may spend an hour searching.
 
-SANAD's whole idea fits in one sentence from slide 1: an assistant that answers from YOUR documents, shows its sources, and refuses when it doesn't know.`,
+SANAD's idea in one sentence (slide 1): an assistant that answers ONLY from your documents, shows WHERE it found the answer, and says "I don't know" when the answer isn't there.`,
     example: {
       title: 'Why the trial-period question is risky with a plain chatbot',
       steps: [
@@ -208,15 +220,39 @@ SANAD's whole idea fits in one sentence from slide 1: an assistant that answers 
     slides: [5],
     oneLiner: 'Retrieval-Augmented Generation: search the documents first, then let the model write only from what was found.',
     needs: 'Node 1 (LLMs predict plausible text).',
-    explain: `RAG means Retrieval-Augmented Generation. Think of an open-book exam: the student (the LLM) may only answer from the pages the librarian (the search engine) hands over.
+    glossary: [
+      { term: "RAG (Retrieval-Augmented Generation)", plain: "A method in 2 steps. Retrieval = search the documents first. Generation = then let the AI write the answer using what was found. \"Augmented\" = the AI gets extra help (the pages).", example: "An open-book exam: first you find the right page in the book, then you write your answer from that page." },
+      { term: "Retrieval / search", plain: "Finding the pieces of text that are most related to the question.", example: "Question: \"congé de maternité\" → the search brings back the 5 paragraphs of the Code that talk about maternity leave." },
+      { term: "Index", plain: "A ready-made list that makes searching fast, prepared in advance. Like the index at the end of a book.", example: "Instead of reading 200 pages for every question, SANAD looks in its index and finds the right paragraphs in a fraction of a second." },
+      { term: "Passage / chunk", plain: "A small piece of a document (in SANAD: 500 characters, about 5–8 lines).", example: "One paragraph of Article 14 is one passage." },
+      { term: "Vector", plain: "A list of numbers that represents the MEANING of a text. Texts with similar meaning get similar numbers. SANAD uses 768 numbers per passage.", example: "\"licenciement\" and \"renvoyer un salarié\" get very close vectors because they mean almost the same thing." },
+      { term: "Local vs cloud", plain: "Local = runs on your own computer, nothing is sent outside. Cloud = uses a company's servers on the internet (e.g. Google's Gemini).", example: "Local: a calculator on your desk. Cloud: calling a friend and asking them to do the calculation." },
+      { term: "NotebookLM / AnythingLLM / PrivateGPT", plain: "Other existing tools that also answer from your documents. NotebookLM is Google's (cloud). AnythingLLM and PrivateGPT can run on your computer.", example: "These are SANAD's \"competitors\" on slide 5." },
+    ],
+    story: "Think of a very good student taking an open-book exam.\n\nBefore the exam (only once): the librarian prepares the book. She cuts it into small labeled cards, one idea per card, and files them in a box so she can find any card instantly. That filing box is the INDEX.\n\nDuring the exam (for every question): the student asks the librarian \"which cards talk about maternity leave?\". The librarian brings back the 5 best cards (that's RETRIEVAL). The student writes the answer using only those cards (that's GENERATION).\n\nIf the librarian brings the wrong cards, the student writes a bad answer. That's why SANAD adds a checker who looks at the cards before the student writes (you'll see it in node 10).",
+    explain: `RAG = Retrieval-Augmented Generation. In simple words: SEARCH first, then WRITE.
 
-RAG has two phases:
-1. Once per document (indexing): convert the document to text, cut it into passages, turn each passage into numbers that capture its meaning (vectors) and into keywords, and store them in an index.
-2. At every question: search the index for the passages closest to the question, give those passages to the LLM, and ask it to write the answer from them only.
+It happens in two moments:
 
-RAG reduces hallucination because the model has the right text in front of it. It does not remove it: the model can still misread a passage, and the search can bring back the wrong passage. That is why SANAD adds a check (grade the passages), a refusal path, and a measured evaluation.
+1. ONCE, when you add a document (this is called "indexing"):
+• SANAD turns the PDF into plain text.
+• It cuts the text into small pieces called passages (500 characters each).
+• For each passage it computes a "vector": a list of 768 numbers that represents what the passage MEANS. It also records the exact WORDS in the passage.
+• It stores all of this in an index, a filing box ready for fast searching.
 
-Where SANAD stands (slide 5, report Table 2.1 p.37): running locally is NOT unique. AnythingLLM and PrivateGPT also run on your machine, and NotebookLM reads illustrated documents better and accepts more sources. SANAD's contribution is the COMBINATION: it can run fully locally, its refusal is measured and published (20/20 at every version), and a gate blocks any version whose scores fall below the thresholds. It also has a French/Arabic interface. Be honest in the defense: the 20/20 is on SANAD's own question set, so it is not a head-to-head comparison.`,
+2. EVERY TIME someone asks a question:
+• SANAD searches the index for the 5 passages closest to the question.
+• It gives those passages to the AI with a strict rule: "answer only from these".
+• The AI writes the answer, and SANAD attaches the sources.
+
+Why it helps: the AI now has the right text in front of it instead of guessing from memory.
+Why it's not perfect: if the search brings the wrong passages, or the AI misreads them, the answer can still be wrong. That's why SANAD adds a checker, a refusal, and an exam with 60 questions (later nodes).
+
+Where SANAD stands vs other tools (slide 5):
+• Running on your own computer is NOT unique. AnythingLLM and PrivateGPT also do it.
+• NotebookLM (Google) is better at reading pictures and accepts more documents.
+• What is special about SANAD is the COMBINATION: it can run 100% locally, it measures and publishes how often it correctly refuses (20 out of 20 at every version), and it has a "gate" that blocks any new version whose scores drop. Plus French and Arabic screens.
+• Be honest in the defense: "20 out of 20" is on OUR own 60 questions. It is not a race against the other tools.`,
     diagram: `flowchart LR
   subgraph ONCE["Once per document"]
     D["Document"] --> C["Convert to text"] --> P["Cut into passages"] --> I[("Index: vectors + keywords")]
@@ -308,17 +344,30 @@ Where SANAD stands (slide 5, report Table 2.1 p.37): running locally is NOT uniq
     slides: [4, 19],
     oneLiner: 'G1, G2, G3: three numbered promises fixed before coding, and a script that blocks a release that misses them.',
     needs: 'Nodes 1–2.',
-    explain: `SANAD did not promise "a good assistant". Before writing code, the team fixed numbered goals (report Table 1.3, p.21):
+    glossary: [
+      { term: "Goal / promise (G1, G2, G3)", plain: "A target written as a number, fixed BEFORE writing code. G = Goal.", example: "\"At least 36 correct answers out of 40\" is a measurable goal. \"Be a good assistant\" is not." },
+      { term: "Grounded answer", plain: "An answer where every sentence is supported by the passages it cites. Nothing added from outside.", example: "Source says \"3 months renewable once\". Answer \"3 months, renewable once\" = grounded. Answer \"3 months, and you get 30 days of leave\" = NOT grounded (leave is not in the source)." },
+      { term: "In-scope / out-of-scope question", plain: "In-scope = the answer IS in the documents. Out-of-scope = the answer is NOT in the documents (SANAD must refuse).", example: "\"Durée de la période d'essai ?\" is in-scope. \"Règles du télétravail ?\" is out-of-scope (the Code de 2004 doesn't talk about remote work)." },
+      { term: "Release / version", plain: "A finished copy of the software given to users, with a number: 1.0.0, 2.0.0, 3.1.0…", example: "Like a phone app update: version 3.1.0 replaced 3.0.0." },
+      { term: "Release gate", plain: "An automatic check that runs before each version. If one number is below its target, the version is blocked.", example: "Like a factory quality control: if the product fails the test, it doesn't leave the factory." },
+      { term: "Threshold", plain: "The minimum number you must reach.", example: "G1 threshold = 90% of 40 = 36 answers." },
+      { term: "Blocking vs non-blocking", plain: "Blocking = failing it stops the release. Non-blocking = we measure and report it, but the release can still go out.", example: "Refusals (G2) are blocking. Speed (G4) is non-blocking." },
+      { term: "Median", plain: "The middle value when you sort the numbers. Half the answers are faster, half are slower.", example: "Times 5 s, 7 s, 8 s, 9 s, 30 s → median = 8 s (the average would be 11.8 s because of the slow 30 s)." },
+    ],
+    story: "Imagine a driving school that promises before the first lesson: \"Our students will pass 36 out of 40 road questions, will stop at ALL 20 red lights, and will always use their mirrors.\"\n\nBefore a student gets the license, an examiner checks the three promises. Miss one red light out of 20? No license, even if everything else was perfect. That is SANAD's release gate.\n\nThe school also measures how fast students park, but a slow parking doesn't cancel the license. That's the non-blocking speed goal.",
+    explain: `SANAD's team didn't promise "a good assistant" (you can't measure that). Before coding, they wrote three promises with numbers:
 
-• G1, grounded answers: on 40 questions whose answer IS in the documents, at least 36 (90%) must be fully supported by the cited sections.
-• G2, honest refusal: on 20 questions whose answer is NOT in the documents, all 20 must be refused.
-• G3, sources shown: 100% of answers display their file and section.
+• G1: answers based on the documents. Out of 40 questions whose answer IS in the documents, at least 36 (90%) must be "grounded": every sentence supported by the cited passages.
+• G2: honest refusal. Out of 20 questions whose answer is NOT in the documents, SANAD must refuse ALL 20. Not 19. All 20.
+• G3: always show the source. 100% of answers must display the file and the section they come from.
 
-These three are BLOCKING: evaluation/gate.py applies them to the evaluation report, and scripts/release_gate.py fails if any is missed. "Si un seuil n’est pas atteint, la version ne sort pas." The 0.90 threshold comes from config (eval_groundedness_threshold), not hard-coded.
+These three are BLOCKING. Before each new version, a script checks them automatically (files evaluation/gate.py and scripts/release_gate.py). If one number is below target, the version doesn't go out. Slide 4: "Si un seuil n'est pas atteint, la version ne sort pas."
 
-Two speed goals are NOT blocking: G4, a median answer in 20 s or less (and 60 s at the 95th percentile); G5, 200 pages queryable within 10 minutes of a Sync. (G6, 9 of 10 clean demo rehearsals, is in the report but no result is reported.)
+Two speed goals are measured but NOT blocking:
+• G4: a typical answer in 20 seconds or less (median).
+• G5: 200 pages ready to search in 10 minutes or less after adding them.
 
-Careful with G3: it is almost true by construction. The code refuses to build an answer with no sources, and refusals are not counted in G3’s denominator. It is still measured, as a regression check: if a code change ever broke that rule, the gate would catch it.`,
+A trap question about G3: it's almost automatically 100%. The code physically refuses to create an answer without sources (it raises an error). So why measure it? Because code can be changed by mistake later. Measuring it at every version catches that day. And careful: G3 only checks that a source is ATTACHED. Whether the answer really matches the source is G1's job.`,
     diagram: `flowchart TD
   E["Run the 60 frozen questions"] --> R["Evaluation report"]
   R --> G1{"G1: grounded >= 36 of 40?"}
@@ -408,22 +457,36 @@ Careful with G3: it is almost true by construction. The code refuses to build an
     slides: [8],
     oneLiner: 'One Python application, local storage, and a single outbound call: the language model.',
     needs: 'Nodes 1–3.',
-    explain: `Slide 8 in plain words:
+    glossary: [
+      { term: "Application / program", plain: "The software itself. SANAD is ONE program written in the Python language.", example: "Like one restaurant building that has the kitchen, the dining room and the cashier inside." },
+      { term: "Server / web page", plain: "SANAD runs as a small website on the computer. You open it in your browser (Chrome) at an address like 127.0.0.1:8000. 127.0.0.1 means \"this same computer\".", example: "Like a restaurant that only serves people already inside the building." },
+      { term: "FastAPI / Jinja", plain: "FastAPI = the Python tool that receives requests from the browser and answers them. Jinja = the tool that builds the HTML pages (the screens) with the data inside.", example: "FastAPI is the waiter taking orders; Jinja is the person plating the dish before it goes to the table." },
+      { term: "Database / SQLite", plain: "A database stores organised information in tables (like Excel sheets that are linked). SQLite is a small database that lives in ONE file (data/sanad.db). No installation needed.", example: "The table \"workspace\" lists the workspaces; the table \"document\" lists the files in each workspace." },
+      { term: "Qdrant (vector index)", plain: "A special database made to search by meaning, using vectors. SANAD uses it \"embedded\": it runs inside the same program, no separate server.", example: "Like a library catalogue that finds \"books about firing employees\" even if the title says \"licenciement\"." },
+      { term: "Workspace (espace)", plain: "A folder of documents that belongs to one team, with its own separate index.", example: "\"RH\" workspace with the Code du travail; \"Manuels\" workspace with technical manuals. A question in RH never searches the manuals." },
+      { term: "Gemini / Ollama / Mistral", plain: "Gemini = Google's AI, used over the internet (cloud mode). Ollama = a free tool that runs an AI on your own computer; Mistral = one AI model you can run with Ollama (local mode).", example: "Cloud mode: you phone an expert abroad. Local mode: the expert lives in your office." },
+      { term: "Embedding model (E5, BM25)", plain: "The small models that turn text into vectors (E5) and into word lists (BM25). They ALWAYS run on your computer, in both modes.", example: "Even in cloud mode, the filing of your documents is done at home." },
+    ],
+    story: "Picture SANAD as a small office building with one outside phone line.\n\nInside the building (your computer): the reception desk (the screens), the archive room (the database SQLite), the smart catalogue (Qdrant), the shelves with full chapters (the parent sections), and the photo cabinet (the figures). Everything about your documents stays inside.\n\nThe only thing that ever goes out is a phone call to the expert who writes the answers: Gemini, far away on the internet (cloud mode). OR, in local mode, you don't phone anyone: the expert Mistral sits in an office inside the building, and nothing leaves at all.\n\nHonest detail: all the measurements in the thesis were done with the phone call to Gemini.",
+    explain: `Slide 8 in simple words.
 
-1. ONE program, in Python. It contains the screens (FastAPI serving server-rendered Jinja pages, no heavy JavaScript framework), the Sync engine, the agent that answers, and the evaluation. The same engine is also exposed as a JSON API under /api/v1.
+1. ONE program. SANAD is a single Python program. Inside it: the screens you see in the browser, the "Sync" engine that reads your documents, the "agent" that answers questions, and the evaluation (the exam). You start it with one command.
 
-2. Local storage (all in the data/ folder):
-• SQLite database data/sanad.db: workspaces, documents, syncs, evaluations, accounts, conversations, feedback.
-• Qdrant index data/qdrant/: the vectors of the 500-character passages, ONE collection per workspace.
-• Parent sections data/parents/<workspace>/: the full sections, stored as JSON files.
-• Figures data/figures/<workspace>/: PNG images plus JSON context.
-(Evaluation reports go to data/reports/. The slide says "four stores", the report text says three and Table 4.5 lists five. Know the list, not the count.)
+2. Everything is stored on the computer, in a folder called data/:
+• data/sanad.db: the SQLite database. It remembers the workspaces, the documents, each Sync, the exam results, the users and the conversation history.
+• data/qdrant/: the search index (Qdrant). It holds the small passages and their vectors. There is ONE separate index per workspace.
+• data/parents/: the full sections of text (the "parents"), saved as files.
+• data/figures/: the pictures taken out of the PDFs.
+(The slide says "4 stockages". Learn the list, not the number: the report text says 3 and one table lists 5.)
 
-3. ONE outbound call: the language model. Cloud mode uses Gemini (gemini-3.6-flash, pinned so scores stay comparable). Local mode uses Ollama (e.g. Mistral) and nothing leaves the machine. The embedding models (E5 for meaning, BM25 for keywords) ALWAYS run locally.
+3. ONE thing can leave the computer: the call to the AI that writes the answer.
+• Cloud mode: the AI is Gemini (Google). The question and the passages found are sent to Google.
+• Local mode: the AI is Mistral running with Ollama on the same computer. Nothing leaves.
+The tools that turn text into vectors (E5, BM25) always run on the computer.
 
-Key choice: Qdrant is embedded. It runs as a library inside the Python process, with no separate server, so one person can launch SANAD with one command. The accepted cost: only one process can open the index at a time, and SQLite does not handle concurrent writes well, so this targets a small team, not thousands of users.
+The key choice: Qdrant runs INSIDE the program ("embedded"), not as a separate server you would need to install. That's why one person can start SANAD with one command. The price: only one program at a time can open the index, and SQLite doesn't like many people writing at the same time. So SANAD suits one small team, not a company of thousands.
 
-Honesty point for the jury: every measured number was obtained in CLOUD mode. In cloud mode the question and the retrieved passages do go to Gemini. Local mode was never measured.`,
+Honesty point: every number in the thesis was measured in cloud mode (with Gemini). Local mode was never measured. Say it before the jury does.`,
     diagram: `flowchart TB
   U["Browser"] --> APP
   subgraph APP["One Python program"]
