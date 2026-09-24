@@ -1019,21 +1019,35 @@ Honest note: figures came in the last, unnumbered version. There is no exam for 
     slides: [10, 22],
     oneLiner: 'The answering flow is a LangGraph state machine: every step, loop and branch is explicit and traced.',
     needs: 'Stage 2 (what search returns).',
-    explain: `SANAD's agent is not a chatbot that "decides" freely. It is a fixed graph of nine nodes (agent/graph.py). Each node reads a shared state (the question, the queries, the passages…), does one job, and adds a step to the trace.
+    glossary: [
+      { term: "Agent", plain: "In SANAD, the part of the program that handles one question from start to end, step by step. It is NOT a free-thinking robot: its steps are fixed in the code.", example: "Like a call-centre script: step 1 greet, step 2 look up the file, step 3 answer or escalate." },
+      { term: "Graph / node / edge", plain: "A graph is a drawing of boxes linked by arrows. Each box is a node (one step). Each arrow is an edge (what comes next).", example: "Box \"search\" → arrow → box \"check\"." },
+      { term: "LangGraph", plain: "A Python library for building such step-by-step flows with loops and branches. SANAD's 9 steps are written with it (file agent/graph.py).", example: "It's like a flowchart that the computer actually runs." },
+      { term: "State", plain: "The shared notebook every step reads and writes: the question, the searches done, the passages found, the answer so far.", example: "Step \"search\" writes the passages in the notebook; step \"check\" reads them." },
+      { term: "Branch / conditional edge", plain: "A place where the flow can go one way OR another, depending on a condition.", example: "If the passages answer the question → go to \"answer\"; if not → go to \"reword\"." },
+      { term: "Loop", plain: "Going back to an earlier step to try again.", example: "reword → search again → check again." },
+      { term: "Trace", plain: "The list of all steps done for one answer, shown under the answer so you can see what happened.", example: "\"summary · 1 search · passages relevant · loaded 2 sections · answered from 2 sources\"." },
+      { term: "Clarification", plain: "When the question is too vague, SANAD asks ONE question back instead of guessing.", example: "You ask \"et pour les congés ?\" with no context → SANAD asks \"Which leave do you mean: annual, maternity or sick leave?\"" },
+    ],
+    story: "Think of a careful pharmacist following a fixed procedure for every customer:\n\n1. Remember what the customer said before (summarize).\n2. Understand the request: if it's unclear, ask ONE question and stop (plan / clarify).\n3. Look in the drawers (search).\n4. Check: is this really the right medicine for this request? (grade)\n5. If not, look again with other words, at most twice (reword).\n6. If yes, take out the full leaflet (load the full sections).\n7. Give the medicine with its leaflet (answer + sources).\n8. If after two extra tries nothing fits: \"we don't have it\", and say where you looked (refuse).\n\nThe pharmacist never improvises the procedure. That's why the jury can trust it: every step is visible and tested.",
+    explain: `SANAD's "agent" is not a chatbot that decides freely. It is a fixed flowchart of 9 steps (file agent/graph.py). Each step does one small job, writes its result in a shared notebook called the "state", and adds a line to the trace you see under the answer.
 
-1. summarize: compress the earlier conversation into a short summary (max 2,000 characters), so a follow-up like "et pour un ouvrier ?" is understood.
-2. rewrite (the planner): either decide the question is too vague, or turn it into 1–5 standalone search queries.
-3. clarify: if vague, ask the user ONE clarifying question and stop. A clarification can only happen once per question (clarification_used).
-4. retrieve: hybrid search for each query, one trace step per query.
-5. grade: an LLM decides whether the passages actually address the question: RELEVANT or OFF_TOPIC. No passages at all counts as off-topic without calling the model.
-6. reword: if off-topic, reformulate the queries and go back to retrieve. At most 2 rewords (retry_ceiling = 2, read from config at every decision).
-7. fetch_parents: load the full sections of the relevant passages.
-8. answer: the writer answers from those sections, with sources.
-9. refuse: the honest refusal. It lists the searches that were tried.
+The 9 steps:
+1. summarize: shortens the earlier conversation (max 2,000 characters), so a follow-up like "et pour un ouvrier ?" makes sense.
+2. rewrite (the planner): either decides the question is too vague, or turns it into 1 to 5 clear searches.
+3. clarify: if vague, asks you ONE question and stops. It can only do this once per question.
+4. retrieve: runs the searches (meaning + exact words, lesson 7).
+5. grade: an AI checks whether the passages found really answer the question. It replies RELEVANT or OFF_TOPIC.
+6. reword: if off-topic, tries other search words and goes back to step 4. At most 2 times.
+7. fetch_parents: loads the full sections of the good passages.
+8. answer: the AI writes the answer from those sections, and the code attaches the sources.
+9. refuse: the honest "I didn't find it in your documents", with the list of searches tried.
 
-Three endings are possible: an answer, a clarifying question, or a refusal. ask() in graph.py is the only place an Answer object is built, and the trace is always attached.
+So every question ends in exactly one of 3 ways: an answer, a clarifying question, or a refusal.
 
-Why LangGraph and not a hand-written loop (ADR-03)? The flow has a loop (reword → retrieve → grade) and branches (clarify or search; answer, reword or refuse). A graph makes the retry ceiling and the refusal path explicit and testable, and it gives a trace of every step for free. The cost is one more framework to learn.`,
+Why LangGraph rather than a simple loop in Python? The flow has a loop (reword → search → check) and branches (clarify or search; answer, reword or refuse). With a graph, each step and each arrow has a name. So the limit of "2 rewords" and the refusal path are visible, testable one by one, and written in the trace. The cost: one more library to learn.
+
+Important for the jury: the AI never chooses which step comes next. Small Python functions (route_after_grade, etc.) decide. The AI only answers small, narrow questions inside the steps.`,
     diagram: `flowchart TD
   START(["question"]) --> SU["summarize"]
   SU --> RW["rewrite: plan 1-5 searches"]
@@ -1128,23 +1142,34 @@ Why LangGraph and not a hand-written loop (ADR-03)? The flow has a loop (reword 
     slides: [10, 12, 21],
     oneLiner: 'An LLM grader checks the passages; after two failed rewords the graph refuses, and no model can talk it out of that.',
     needs: 'Node 9.',
-    explain: `This is the heart of the project: SANAD is allowed to say no.
+    glossary: [
+      { term: "Grader (vérificateur)", plain: "The step where an AI reads the question and the passages found and answers with ONE word: RELEVANT (they help answer) or OFF_TOPIC (they don't).", example: "Question about the trial period; passages about maternity leave → OFF_TOPIC." },
+      { term: "RELEVANT / OFF_TOPIC", plain: "The only two words the grader may answer. \"Same subject\" is not enough to say RELEVANT: the passage must help WRITE the answer.", example: "A passage that just says \"the trial period is regulated\" without giving a duration → OFF_TOPIC for \"how long?\"." },
+      { term: "Reword (reformulate)", plain: "Try the search again with different words.", example: "\"période d'essai cadre\" → \"durée essai cadres et assimilés\"." },
+      { term: "Retry ceiling", plain: "The maximum number of rewords allowed: 2 (setting retry_ceiling in config.py).", example: "First search + 2 rewords = 3 tries maximum." },
+      { term: "Refusal", plain: "SANAD's honest answer: \"I could not answer this from the documents in this workspace, and I will not guess\", plus the list of searches it tried.", example: "Question about remote work → refusal after 3 tries." },
+      { term: "NOT_COVERED", plain: "The exact word the writer AI must reply when the sections don't contain the answer. SANAD turns it into a refusal.", example: "The sections talk about notice periods but not about the one asked → NOT_COVERED." },
+      { term: "Threshold / score (and why SANAD doesn't use one)", plain: "Some systems refuse when a similarity score is below e.g. 0.70. SANAD does NOT: an AI grader decides, because search scores don't measure \"does this answer the question\".", example: "A passage can be 90% similar in topic and still not contain the answer." },
+    ],
+    story: "A careful secretary gets a request: \"find me the rule about the delay for X\".\n\nShe pulls 5 files and reads them quickly. \"Do these actually answer the question?\" If yes → she prepares the answer. If no → she searches again with other words. She allows herself only 2 extra searches. After that she says honestly: \"I didn't find it, here's where I looked. Maybe rephrase, add the document, or check another folder.\"\n\nQuestion 33 is her one mistake: the right file was the first one she pulled, but she only read the first few lines of the page, and the key sentence was just below. So she said \"not relevant\" three times and gave up. A cautious mistake: she didn't invent anything.",
+    explain: `This is the heart of the project: SANAD is allowed to say NO.
 
-The grader (prompts/relevance-grader) receives the question and the retrieved passages and must reply with ONE word: RELEVANT if at least one passage helps answer, even partially, or OFF_TOPIC. Its prompt insists: "A passage that merely mentions the same subject is not enough." It is told that a false RELEVANT, which leads to a confident wrong answer, is worse than saying nothing was found.
+The grader. After the search, an AI (the "relevance grader") gets the question and the passages and must answer with one word: RELEVANT if at least one passage helps write the answer, even partly, or OFF_TOPIC. Its instructions say "a passage that merely mentions the same subject is not enough", and that a false RELEVANT, which leads to a confident wrong answer, is worse than saying nothing was found.
 
-The loop (route_after_grade):
-• RELEVANT → fetch the parent sections and answer.
-• OFF_TOPIC and fewer than 2 rewords so far → reword the queries and search again.
-• OFF_TOPIC and the ceiling is reached → refuse.
+The loop (the function route_after_grade):
+• RELEVANT → load the full sections and write the answer.
+• OFF_TOPIC, and fewer than 2 rewords so far → reword the search and try again.
+• OFF_TOPIC, and already 2 rewords → refuse.
+So at most 3 search rounds per question.
 
-The refuse node calls no model. The refusal is what the graph does when the grader has said no as many times as allowed, and it lists the searches tried (slide 12 shows seven: up to 5 planned queries plus rewords).
+The refusal is decided by the code, not by an AI. The "refuse" step calls no AI at all. It shows the searches that were tried (slide 12 shows seven: up to 5 planned searches plus rewords).
 
-There are three roads to a refusal:
-1. The grader says OFF_TOPIC three times (initial search + 2 rewords), or nothing was found.
-2. The passages were relevant, but their sections could not be read. This gives a different message: "run a Sync".
-3. The writer reads the sections and replies NOT_COVERED, because they don't actually answer. This is still an honest refusal, never an answer whose text says "I don't know".
+3 roads lead to a refusal:
+1. The grader says OFF_TOPIC 3 times (or nothing was found at all).
+2. The passages were good, but their full sections couldn't be read from disk. Then the message is different: "run a Sync".
+3. The writer reads the full sections and replies NOT_COVERED, because they don't really answer. This becomes a refusal, never an "answer" that says "I don't know".
 
-Question 33 (g-in-033) is the one remaining failure. The answer (a one-month delay) is in Article 66, and the search even found it at rank 1. But the grader reads the 500-character child passages, and the relevant child stops just before the delay. So the grader says OFF_TOPIC three times, and the rewording drifted to French-France terms like "CSE". SANAD refuses: a cautious refusal, not an invention. The planned fix is to let the grader read the whole section, like the writer does, then re-check that 20/20 still holds.`,
+Question 33 (g-in-033), the only remaining failure. The answer (a delay of one month) is in Article 66, and the search even found Article 66 in 1st position. But the grader only reads the small 500-character passages, and that passage stops just before the words "un mois". So the grader says OFF_TOPIC three times and SANAD refuses. It's a cautious refusal, not an invention. The fix: let the grader read the whole section, like the writer does, then check again that the 20/20 refusals still hold. It wasn't done before the defense because it changes the grading of every question.`,
     example: {
       title: 'Counting calls in the worst case',
       steps: [
@@ -1228,23 +1253,37 @@ Question 33 (g-in-033) is the one remaining failure. The answer (a one-month del
     slides: [10, 12],
     oneLiner: 'The writer answers only from the sections; the source list is built by Python from what was retrieved, never from the model’s text.',
     needs: 'Nodes 9–10.',
-    explain: `The writer (prompts/answer-writer) receives the question and the full sections, and nothing else. Its rules:
-• Answer only from the sections, in the question's language.
+    glossary: [
+      { term: "Writer (answer-writer)", plain: "The AI step that writes the final answer. It only receives the question and the full sections found. Its instructions: use only these sections, copy numbers exactly, or reply NOT_COVERED.", example: "Sections contain Article 14 → writer: \"Article 14 fixe la période d'essai des cadres à trois mois, renouvelable une fois.\"" },
+      { term: "Source card", plain: "The numbered box under an answer showing the file and section. Click it and the document opens on the exact passage, highlighted.", example: "[1] code-travail.pdf — Article 14." },
+      { term: "Prompt", plain: "The written instructions given to an AI. SANAD keeps them as versioned files in prompts/.", example: "prompts/answer-writer/PROMPT.md is the writer's instruction sheet." },
+      { term: "Raise an error / exception", plain: "When the code detects something forbidden, it stops and complains instead of continuing.", example: "If someone tries to create an answer with zero sources, the code stops with an error: \"an answer with no sources cannot be final\"." },
+      { term: "Memory / summary", plain: "SANAD keeps a short summary of the conversation so follow-up questions make sense. History is private per person, kept 30 days.", example: "Q1: \"période d'essai d'un cadre ?\" Q2: \"et pour un ouvrier ?\" The summary tells SANAD Q2 is also about the trial period." },
+      { term: "Streaming", plain: "Showing the answer bit by bit while it's being written, instead of waiting for the end.", example: "Like watching someone type in a chat." },
+      { term: "Hold-back (40 characters)", plain: "SANAD waits for the first 40 characters before showing anything, to be sure the writer isn't replying NOT_COVERED.", example: "Otherwise you might see \"NOT_COV…\" appear and then turn into a refusal." },
+      { term: "Disclaimer", plain: "A warning line. For legal documents: SANAD's answer is not legal advice.", example: "\"Ceci n'est pas un conseil juridique.\"" },
+    ],
+    story: "Imagine a student who writes an essay and a teacher who builds the bibliography.\n\nThe student (the writer AI) may only use the photocopies the librarian gave her. She must copy numbers exactly, and she is forbidden to write [1] or [2] herself.\n\nThe bibliography under the essay is NOT written by the student. The teacher (the code) builds it automatically from the photocopies that were actually handed over. So a book the student \"remembers\" can never appear in the bibliography.\n\nAnd the school rule: an essay with an empty bibliography cannot even be submitted; the system refuses it.",
+    explain: `How the final answer is built.
+
+1. The writer (an AI) receives only the question and the full sections loaded in the step before. Its rules (file prompts/answer-writer/PROMPT.md):
+• Answer only from the sections, in the language of the question.
 • Copy numbers, durations and article numbers EXACTLY.
-• Name the article in the sentence ("Article 13 fixe…"), but NEVER write bracketed references like [1], because a number it makes up points at nothing.
-• If the sections don't answer, reply exactly NOT_COVERED. The graph turns that into a refusal.
+• Name the article in the sentence ("Article 13 fixe…"), but NEVER write [1], [2]… because a number it invents would point to nothing.
+• If the sections don't answer, reply exactly NOT_COVERED, which becomes a refusal.
 
-The sources are not written by the model. In make_answer, one tuple, cited, holds the passages whose sections were actually loaded. It is BOTH what the writer is shown AND what the source cards are built from. So a source card can only point to a section the writer really read. An earlier version cited all 5 passages even when only 4 sections loaded; that bug is why one tuple now does both jobs.
+2. The sources are built by the code, never by the AI. The code keeps a list of the passages whose full section was really loaded. That same list is (a) what the writer is shown AND (b) what the source cards are made from. So every source card points to a section the writer really read.
+Real bug that shaped this: an older version showed 5 source cards when only 4 sections could be loaded, so one card pointed to a text nobody read. Now one list does both jobs.
 
-The last lock: Answer.__post_init__ raises an error if an answer of kind "answer" has no sources, and the classes are frozen (immutable) after construction.
+3. The last lock: in the code, an answer with no sources cannot exist. The code raises an error (in agent/state.py).
 
-In the interface, each numbered source opens the exact passage, highlighted in the document. A source link only opens from the conversation that received it.
+4. In the screen: each source card opens the document on the exact passage, highlighted. A source link only works from the conversation that received it.
 
-Memory: the summarize node keeps a rolling summary (max 2,000 characters) plus recent turns, so follow-up questions work. History is private per person and kept 30 days.
+5. Memory: a short summary (max 2,000 characters) plus recent messages, so follow-ups work. Private per person, deleted after 30 days.
 
-Streaming: the answer appears progressively. But the writer might output NOT_COVERED, so the first 40 characters are held back (STREAM_HOLD_CHARS = 40). This way the user never sees "NOT_COV…" start as if it were an answer before it turns into a refusal.
+6. Streaming: the answer appears bit by bit. But SANAD first holds back 40 characters to be sure the writer didn't reply NOT_COVERED. So you never see a fake start of an answer.
 
-Legal workspaces add a disclaimer (F-09): SANAD is not legal advice.`,
+7. For legal workspaces, a warning says it's not legal advice.`,
     diagram: `sequenceDiagram
   participant G as graph
   participant P as parent store
