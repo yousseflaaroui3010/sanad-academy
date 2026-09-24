@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node scripts/check-coach.mjs && tsc -b && vite build",
     "start": "node server.js",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:coach": "node scripts/check-coach.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

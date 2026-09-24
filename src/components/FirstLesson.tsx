@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import { LessonVisual } from './LessonVisual';
 import { EvidenceBridge } from './EvidenceBridge';
+import { AnswerCoach } from './AnswerCoach';
 
 const parcours = [
   { temps: 'Jour 1', slides: '1 à 5', sujet: 'Le problème, nos trois promesses, puis le principe du RAG.' },
@@ -12,10 +12,6 @@ const parcours = [
 ];
 
 export function FirstLesson({ onSkip, companion = false }: { onSkip: () => void; companion?: boolean }) {
-  const [confiance, setConfiance] = useState('');
-  const [reponse, setReponse] = useState('');
-  const [envoye, setEnvoye] = useState(false);
-
   return (
     <article className="mx-auto max-w-3xl space-y-6 pb-12">
       <header className="space-y-3">
@@ -67,23 +63,7 @@ export function FirstLesson({ onSkip, companion = false }: { onSkip: () => void;
         </ul>
       </section>}
 
-      {!companion && <section aria-labelledby="exercice" className="space-y-4 rounded-2xl border border-blue-200 bg-blue-50 p-5 sm:p-6">
-        <h2 id="exercice" className="text-xl font-semibold">Exercice 1 · Sans notes</h2>
-        <p>Votre espace ne contient qu’un manuel du personnel. Vous demandez le prix du train demain. Que doit faire Sanad, et pourquoi ? Qu’est-ce qu’une carte source prouverait, et qu’est-ce qu’elle ne prouverait pas ?</p>
-        <label htmlFor="confiance" className="block font-medium">Avant de répondre : votre confiance, de 1 à 5</label>
-        <select id="confiance" value={confiance} onChange={(event) => { setConfiance(event.target.value); setEnvoye(false); }} className="block rounded-lg border border-slate-500 bg-white p-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">
-          <option value="">Choisir</option>
-          {[1, 2, 3, 4, 5].map((note) => <option key={note} value={note}>{note}</option>)}
-        </select>
-        <label htmlFor="reponse" className="block font-medium">Votre raisonnement</label>
-        <textarea id="reponse" value={reponse} onChange={(event) => { setReponse(event.target.value); setEnvoye(false); }} rows={4} className="w-full rounded-lg border border-slate-500 bg-white p-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700" />
-        <div className="flex flex-wrap gap-3">
-          <button type="button" disabled={!confiance || !reponse.trim()} onClick={() => setEnvoye(true)} className="rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 disabled:cursor-not-allowed disabled:opacity-50">J’ai terminé ma tentative</button>
-          <button type="button" onClick={onSkip} className="rounded-lg border border-blue-700 bg-white px-4 py-2 font-semibold text-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">Passer cette leçon →</button>
-        </div>
-        <p className="text-sm text-slate-700">Passer fait gagner du temps. Cela ne marque pas la leçon comme maîtrisée ; vous pouvez y revenir.</p>
-        {envoye && <p role="status" className="font-medium">Votre réponse reste sur cette page. Copiez-la avec votre note de confiance dans la conversation : je vérifierai le raisonnement avant de passer à la suite.</p>}
-      </section>}
+      {!companion && <AnswerCoach exerciseId={1} heading="Exercice 1 · Sans notes" question="Votre espace ne contient qu’un manuel du personnel. Vous demandez le prix du train demain. Que doit faire Sanad, et pourquoi ? Qu’est-ce qu’une carte source prouverait, et qu’est-ce qu’elle ne prouverait pas ?" onSkip={onSkip} skipLabel="Passer cette leçon →" />}
     </article>
   );
 }

@@ -20,6 +20,7 @@ ENV NODE_ENV=production
 # Copy build artifacts and production server
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/server.js ./server.js
+COPY --from=builder /app/coach ./coach
 COPY --from=builder /app/dist ./dist
 
 # Non-root user for security (aligned with Spec 15 / Spec 14)
