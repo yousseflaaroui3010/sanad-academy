@@ -51,7 +51,7 @@ export function FirstLesson({ onSkip, onNext, companion = false }: { onSkip: () 
           </ol>
         </div>
         <p><strong>Toujours vrai dans le code :</strong> L’objet « réponse finale » exige au moins une source. <strong>Prudence :</strong> Une carte source indique où vérifier ; elle ne prouve pas à elle seule que chaque phrase est fidèle au document.</p>
-        <p className="text-sm text-slate-600">À retrouver dans le projet : <code>sync.py</code> prépare les fichiers ; <code>agent/graph.py</code> trace les étapes de la question ; <code>agent/state.py</code> impose la source. Le rapport détaille la science au chapitre 2.</p>
+        <p className="text-sm text-slate-600">Dans le code : <code>sync_workspace()</code> prépare les fichiers de l’espace ; <code>build_graph()</code> relie les étapes de la question (chercher, vérifier, répondre ou refuser) ; <code>Answer.__post_init__()</code> refuse de créer une réponse sans source. Le rapport détaille la science au chapitre 2.</p>
       </section>}
 
       <LessonVisual slide={1} />

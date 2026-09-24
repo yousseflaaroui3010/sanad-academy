@@ -84,12 +84,12 @@ export const beginner: Record<number, Beginner> = {
   6: {
     plain: 'Le projet a été fait à deux, YL et MB, par petites tâches. Il y avait un plan (qui devait faire quoi) et un journal (qui a vraiment fait quoi). Au jury, il faut dire la vérité du journal, même quand elle diffère du plan.',
     words: [
-      { term: 'Tâche (ST-xx)', meaning: 'Un petit morceau de travail avec un numéro, par exemple ST-19. Chaque tâche a un objectif clair et des critères pour dire si elle est finie.', example: 'ST-35 : figer le jeu de questions de test.' },
+      { term: 'Tâche', meaning: 'Un petit morceau de travail, avec un objectif clair et des critères pour dire s’il est fini.', example: 'Figer le jeu de questions de test.' },
       { term: 'Branche', meaning: 'Une copie de travail du code où l’on fait une modification sans toucher la version principale.', example: 'Comme écrire un brouillon à part avant de recopier au propre.' },
       { term: 'Fusion (merge)', meaning: 'Le moment où la modification d’une branche est ajoutée à la version principale du code.', example: 'Le brouillon validé est recopié dans le cahier officiel.' },
       { term: 'Revue', meaning: 'Une autre personne relit la modification avant la fusion, pour trouver les erreurs.', example: 'MB relit le code de YL avant qu’il soit ajouté.' },
-      { term: 'Plan (BUILD-PLAN.md)', meaning: 'Le document qui dit qui DEVAIT faire chaque tâche.', example: 'Le plan attribue le moteur à YL.' },
-      { term: 'Journal (BUILD-STATE.md, CHANGELOG.md)', meaning: 'Les documents qui notent ce qui s’est VRAIMENT passé : qui a fait quoi, les exceptions, les corrections.', example: 'Le journal note que MB a réalisé une tâche prévue pour YL.' },
+      { term: 'Le plan', meaning: 'Le document qui dit qui DEVAIT faire chaque tâche.', example: 'Le plan attribue le moteur à YL.' },
+      { term: 'Le journal', meaning: 'Les documents qui notent ce qui s’est VRAIMENT passé : qui a fait quoi, les exceptions, les corrections.', example: 'Le journal note que MB a réalisé une tâche prévue pour YL.' },
     ],
     story: [
       'Au début, le plan partage le travail : surtout le moteur et les écrans pour YL ; le corpus, les questions de test, les contrôles qualité et une partie du mémoire pour MB.',
@@ -180,7 +180,7 @@ export const beginner: Record<number, Beginner> = {
       { term: 'Description générée', meaning: 'Un texte écrit par un modèle qui regarde l’image. Il aide à la retrouver, mais il peut inventer.', example: 'Le modèle écrit « pression 12 bars » alors que le document ne le dit pas.' },
       { term: 'text / search_text', meaning: 'Deux textes rangés pour chaque figure. text : seulement les mots du document. search_text : les mots du document plus la description générée, pour la recherche.', example: 'La recherche peut utiliser la description ; la réponse, jamais.' },
       { term: 'Docling / PyMuPDF', meaning: 'Deux outils qui lisent les PDF. Docling analyse la mise en page ; PyMuPDF découpe les zones et récupère les images.', example: 'Sur une page de neuf photos, PyMuPDF prend directement leurs cadres.' },
-      { term: 'origin/main (#157)', meaning: 'origin/main est la version principale du code sur GitHub. #157 est le numéro de la modification qui a ajouté les figures.', example: 'La fonction figures existe dans la version principale depuis #157.' },
+      { term: 'Version principale du code', meaning: 'La version du code sur GitHub dans laquelle toutes les modifications validées sont rassemblées.', example: 'Les figures ont été ajoutées à la version principale après la mesure de la version 3.1.' },
     ],
     story: [
       'Un manuel contient le schéma d’une pompe avec la légende « courbe de pompe ».',
