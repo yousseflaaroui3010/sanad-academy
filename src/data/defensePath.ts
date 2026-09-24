@@ -1382,20 +1382,32 @@ Real bug that shaped this: an older version showed 5 source cards when only 4 se
     slides: [14],
     oneLiner: '60 French questions written and frozen before tuning, an automatic judge, and a gate before each release.',
     needs: 'Node 3 (G1–G3) and Stage 3 (answer vs refusal).',
-    explain: `A chosen demo proves nothing: you can always pick questions that work. So SANAD is measured like an exam.
+    glossary: [
+      { term: "Evaluation / benchmark", plain: "A fixed exam that the system takes to measure its quality with numbers.", example: "SANAD's exam: 60 questions about the HR documents." },
+      { term: "Golden set", plain: "The official list of exam questions with the expected behaviour for each (answer or refuse).", example: "evaluation/golden/batch1–3.jsonl contains SANAD's 60 questions." },
+      { term: "Frozen", plain: "Written once and not changed afterwards, so nobody can adjust the exam to get a better score.", example: "The 60 questions were frozen before any tuning." },
+      { term: "Tuning", plain: "Adjusting the system (prompts, settings) to make it work better.", example: "Changing the grader's instructions to reduce false refusals." },
+      { term: "Overfitting (teaching to the test)", plain: "When you adjust a system for the exact exam questions, so the score goes up without the system really getting better.", example: "Knowing the exam questions in advance and memorising only those answers." },
+      { term: "Judge (LLM-as-judge)", plain: "An AI used to GRADE answers. SANAD's judge reads the question, the answer and the cited sections, and gives a score from 0 to 1 for \"is every claim supported?\".", example: "Answer fully supported → 1.00. One invented detail → below 1.00 → it doesn't count for G1." },
+      { term: "RAGAS", plain: "A popular ready-made tool to grade RAG systems. SANAD planned to use it, but it wouldn't install with the library versions they use, so they wrote their own judge.", example: "Planned tool → replaced by a change request." },
+      { term: "Self-preference bias", plain: "An AI judge tends to like answers written by its own family of models.", example: "Gemini grading Gemini might be too kind." },
+    ],
+    story: "A school wants to prove its students really learned.\n\nA demo where the teacher chooses easy questions proves nothing. So the school writes 60 exam questions BEFORE the course starts and locks them in a safe: 40 questions whose answers are in the textbook, and 20 tricky ones whose answers are NOT in the textbook (the student must say \"that's not in the book\").\n\nAn examiner grades each answer: is every sentence supported by the textbook? For the 20 trick questions, grading is simple: did the student say \"not in the book\", yes or no?\n\nBefore each school year the exam is taken again. Below the passing mark, the class doesn't graduate.",
+    explain: `A chosen demo proves nothing, because you can always pick questions that work. So SANAD is measured like an exam.
 
-The question set (evaluation/golden/batch1–3.jsonl): 60 questions in French about the HR corpus, about 200 pages. The corpus is the Code du travail, the dahir 1-72-184 (social security) and a CNSS/CLEISS guide.
-• 40 in-scope questions: the answer IS in the documents (e.g. the trial period of a manager).
-• 20 out-of-scope questions: the answer is NOT there. They are neighbouring topics, not silly ones: income tax, remote work (absent from the Code), "rupture conventionnelle", and a trap mixing up article 33 of two different texts.
-They were written by Meriem and frozen before any tuning, so the system could not be tuned to the test. Two questions were corrected after the freeze (one "out-of-scope" question actually had its answer in article 156 and was reclassified; one about article 240 was replaced). The corrections were versioned and documented (issue #88). The system was right; the dataset was wrong.
+The questions: 60 questions in French about the HR documents (about 200 pages: the Code du travail, a social-security dahir, and a CNSS/CLEISS guide).
+• 40 "in-scope" questions: the answer IS in the documents, e.g. "trial period of a manager?".
+• 20 "out-of-scope" questions: the answer is NOT there. They are close topics on purpose, not silly ones: income tax, remote work (absent from the Code), "rupture conventionnelle", and a trap mixing up article 33 of two different texts.
 
-The judge: RAGAS was planned, but it would not install with the pinned LangChain versions (checked by running it). A written change request replaced it with an in-house LLM judge (prompt eval-judge, evaluation/scoring.py). For each answer, it receives the question, the answer and exactly the sections the writer saw, and gives a groundedness score from 0 to 1. G1 counts an answer only if it scores a full 1.00.
+Written and frozen first. Meriem wrote them BEFORE any tuning, so the team couldn't adjust SANAD to those exact questions. Two questions were corrected afterwards: one "out-of-scope" question actually had its answer in article 156 (moved to in-scope), and one about article 240 was replaced. Both changes were written down and versioned. In both cases SANAD was right and the exam was wrong.
 
-G2 does not depend on the judge. A refusal is read mechanically from answer_kind = refusal. G3 is structural.
+The judge. RAGAS was planned but wouldn't install with SANAD's library versions. So a home-made AI judge replaced it (file evaluation/scoring.py). For each answer, it sees the question, the answer and exactly the sections the writer saw, and gives a score from 0 to 1. G1 counts an answer only if it gets a perfect 1.00.
 
-The gate: evaluation/gate.py re-derives G1–G3 from the report, and scripts/release_gate.py exits with an error if a threshold is missed. The evaluation runs as a manual GitHub workflow, because it spends API credits.
+The refusals (G2) don't use the judge: the code simply checks whether the answer type is "refusal". G3 is checked by the code too.
 
-Weak points to own: the judge is the same Gemini model that wrote the answers (self-preference risk). It does not see the reference answers. All 39 answered questions scored exactly 1.00, so it shows little discrimination. There are no retrieval metrics (recall@k), and only one run per version.`,
+The gate. A script re-calculates G1, G2 and G3 from the results and fails if a target is missed. The exam runs as a manual GitHub job, because each run costs API credits.
+
+Weak points to admit: the judge is the same Gemini family as the writer (it may be too kind). It gave all 39 answers exactly 1.00. It doesn't see the "expected" answers. There is no measure of search quality alone, and only one exam run per version.`,
     diagram: `flowchart LR
   G["60 frozen FR questions: 40 in, 20 out"] --> RUN["Run SANAD on each"]
   RUN --> IN{"in-scope?"}
@@ -1486,24 +1498,34 @@ Weak points to own: the judge is the same Gemini model that wrote the answers (s
     slides: [15, 16, 19],
     oneLiner: '36 → 39 of 40 grounded, 100/100 refusals, 0 unsourced answers, 8.3 s median. And how not to over-read them.',
     needs: 'Node 12.',
-    explain: `The five releases (docs/evals/release-*.json, report Table 6.2):
-| Version | Date | G1 grounded | G2 refused | G3 sourced | Failing in-scope ids |
-| 1.0.0 | 12 Sep | 36/40 | 20/20 | 36/36 | 014, 026, 033, 040 |
-| 1.0.1 | 12 Sep | 37/40 | 20/20 | 37/37 | 014, 026, 033 |
-| 2.0.0 | 13 Sep | 38/40 | 20/20 | 38/38 | 026, 033 |
-| 3.0.0 | 14 Sep | 38/40 | 20/20 | 38/38 | 014, 033 |
-| 3.1.0 | 19 Sep | 39/40 | 20/20 | 39/39 | 033 |
+    glossary: [
+      { term: "Grounded (G1) / refused (G2) / sourced (G3)", plain: "The three scores: answers fully supported, trick questions refused, answers with a source.", example: "Version 3.1: 39/40 grounded, 20/20 refused, 39/39 sourced." },
+      { term: "Percentage point", plain: "The difference between two percentages. With 40 questions, 1 question = 2.5 points.", example: "36/40 = 90%, 37/40 = 92.5%: one more question = +2.5 points." },
+      { term: "Run-to-run variation", plain: "The same AI can answer slightly differently each time, even with the same question. So scores can move a bit by chance.", example: "Question g-in-014 passed in version 2.0.0 and failed in 3.0.0 with no related code change." },
+      { term: "Ablation", plain: "An experiment where you remove one part to see how much it helped. SANAD didn't do this.", example: "Run the exam without keyword search to see if hybrid search really helps." },
+      { term: "Median vs mean (moyenne)", plain: "Median = the middle value. Mean (moyenne) = sum divided by count. They are different!", example: "8.3 s is SANAD's MEDIAN answer time. Say \"médiane\", not \"moyenne\"." },
+      { term: "Under load", plain: "When the computer is busy doing other things at the same time.", example: "Syncing 200 pages took 732 s while the laptop was busy, instead of about 375–450 s when idle." },
+    ],
+    story: "A basketball player's free throws over five weeks: 36, 37, 38, 38, 39 out of 40.\n\nIs she improving? Probably, but carefully: each shot is worth 2.5%, she only shot once a week, and some days are just luckier. You wouldn't say \"the new shoes gave +7.5%\". You'd say \"a steady trend, and she never missed an easy shot by throwing the ball at the wrong basket.\"\n\nFor SANAD, \"never threw at the wrong basket\" = every failure was a refusal, never an invented answer.",
+    explain: `The 5 versions (from the result files in docs/evals/):
+| Version | Date | Grounded (G1) | Refused (G2) | Sourced (G3) |
+| 1.0.0 | 12 Sep | 36/40 | 20/20 | 36/36 |
+| 1.0.1 | 12 Sep | 37/40 | 20/20 | 37/37 |
+| 2.0.0 | 13 Sep | 38/40 | 20/20 | 38/38 |
+| 3.0.0 | 14 Sep | 38/40 | 20/20 | 38/38 |
+| 3.1.0 | 19 Sep | 39/40 | 20/20 | 39/39 |
 
-Read them carefully:
-• "100/100 refusals" means the same 20 questions × 5 versions, not 100 different questions.
-• Every G1 failure was a REFUSAL of an answerable question, never a wrong answer.
-• G3's denominator is the answers given (refusals are not answers), and it is 100% by construction.
-• With 40 questions, one answer is worth 2.5 points. The rise from 36 to 39 is a trend, not a proof. There is one run per version, and g-in-014 alternates (it failed in 3.0.0 after passing in 2.0.0), which is normal run-to-run model variation. There is no ablation (no measured "with vs without hybrid search").
+How to read these numbers without falling into traps:
+• "100/100 refusals" = the SAME 20 questions × 5 versions. Not 100 different questions.
+• Every G1 failure was a REFUSAL of a question that had an answer. Never a wrong or invented answer.
+• G3 counts only the answers given (refusals aren't answers), and it's 100% by construction.
+• 1 question = 2.5 points. Going from 36 to 39 is +3 questions. It's a trend, not a proof. There was only one run per version, and the AI varies from run to run (question g-in-014 passed in 2.0.0 and failed in 3.0.0). No ablation was done, so you can't say which change caused the gain.
 
-Speed (report Tables 6.3–6.4):
-• Answer time: median 8.3 s over 20 timed questions, slowest 18.1 s (target: median ≤ 20 s). The first question after a start takes 23.2 s while models load. These were measured on v1 (11 Sep), not re-timed on v3. Note that 8.3 s is a MEDIAN: the slide-16 speaker note says "en moyenne", so say "médiane".
-• Sync of 200 pages (target ≤ 600 s): 449.4 s and 375.3 s on a quiet laptop (met), and 731.6 s while the machine was busy (missed). Most of the time is the embedding model (about 0.29 s per chunk) and PDF reading. They show the failure rather than hide it.
-• Re-sync of an unchanged folder: 0.09 s.`,
+Speed:
+• Answers: the MEDIAN time is 8.3 s over 20 timed questions (target: 20 s or less). The slowest took 18.1 s. The first question after starting takes about 23 s, because the models load. Measured on version 1.
+Warning: the note under slide 16 says "huit secondes en moyenne". Say "médiane".
+• Adding 200 pages (target: 10 minutes = 600 s): 449 s and 375 s on a quiet laptop (success), 732 s while the laptop was busy (failure). Most of the time goes to computing the vectors (about 0.29 s per passage) and reading the PDF. They show the failure instead of hiding it.
+• Re-syncing an unchanged folder: 0.09 s.`,
     example: {
       title: 'Why 36 → 39 is only "+3 questions"',
       steps: [
@@ -1579,20 +1601,29 @@ Speed (report Tables 6.3–6.4):
     slides: [17, 18, 21],
     oneLiner: 'Six declared limits, each paired with a planned fix and the number that will prove it worked.',
     needs: 'Nodes 10, 12, 13.',
-    explain: `Slide 17 lists what the work does NOT prove, and slide 18 pairs each limit with a fix and a success measure (report Table 6.7 and Table C.1).
+    glossary: [
+      { term: "Limit (limite)", plain: "Something your work does NOT prove, or does not do yet.", example: "\"The local mode was not measured.\"" },
+      { term: "Perspective / future work", plain: "What you plan to do next to fix a limit.", example: "\"Measure the local mode on the 60 questions within one month.\"" },
+      { term: "Success criterion / metric", plain: "The number that will tell you the fix worked.", example: "\"40/40 while keeping 20/20.\"" },
+      { term: "Local mode measurement", plain: "Running the same exam with the AI running on the computer (Ollama/Mistral) instead of Gemini.", example: "MODEL_MODE=local, then the same 60 questions and the same thresholds." },
+      { term: "User interview", plain: "Talking with real future users to learn their needs. SANAD's needs come from the team's own work experience, not interviews.", example: "Interviewing 3 HR officers about how they search the Code today." },
+      { term: "Screen reader", plain: "Software that reads the screen aloud for blind users. SANAD's accessibility was never tested with one.", example: "NVDA or VoiceOver reading the answer and the source cards." },
+    ],
+    story: "A car maker presents a new car and says, before anyone asks: \"Brakes tested on dry roads only; wet-road test next month, target: stopping in under 40 metres. Fuel use measured in petrol mode only; electric mode test planned.\"\n\nThe audience trusts the car MORE, because the maker knows exactly what was tested and what wasn't, and has a plan with a number for each gap.\n\nThat is what slides 17 and 18 do for SANAD.",
+    explain: `Slide 17 lists what the work does NOT prove. Slide 18 gives, for each limit, a fix and the number that will prove the fix worked.
 
 1. 60 questions is small: one answer moves the score by 2.5 points.
-2. French questions only: the interface has Arabic (right-to-left), but Arabic answers are not scored. Next, at 3 months: 30 Arabic questions.
-3. Local mode not measured: every number comes from cloud mode (Gemini). Nobody knows what SANAD scores without internet. Next, at 1 month: run the 60 questions in local mode.
-4. The judge is from the same model family. Next, at 6 months: a second judge from another family plus 20 hand-graded answers.
-5. No user interviews: the needs come from the team's work experience. Next, at 6 months: 3 interviews with HR officers and a usability test with 5 users.
-6. One remaining failure, question 33: the grader reads a 500-character extract. Next, at 1 month: the grader reads the whole section; success = 40/40 while keeping 20/20.
+2. French questions only: the screens exist in Arabic, but Arabic answers were never graded. Plan (3 months): 30 Arabic questions.
+3. Local mode not measured: every number comes from cloud mode (Gemini). Nobody knows how SANAD scores without internet. Plan (1 month): run the 60 questions in local mode, with the same thresholds.
+4. The judge is from the same family as the writer (it might be too kind). Plan (6 months): a second judge from another AI family, plus 20 answers graded by hand.
+5. No user interviews: the needs come from the team's experience. Plan (6 months): 3 interviews with HR officers and a test with 5 users.
+6. One remaining failure, question 33: the grader reads only a 500-character piece. Plan (1 month): let the grader read the whole section; success = 40/40 while keeping 20/20.
 
-Also at 3 months: a frozen 20-question set for figures, and a manager for each shared workspace. Workspaces created before v3 have no owner, so everyone can read them and nobody can edit them from the interface.
+Also planned at 3 months: a 20-question exam for figures, and an owner for each shared workspace. Today, workspaces created before version 3 have no owner, so everyone can read them and nobody can edit them from the screen.
 
-Other honest gaps the report records: times were measured on v1; G5 was missed under load; there is no screen-reader test (dropped by a written decision); photo-only details get refused; G6 (9/10 clean rehearsals) has no reported result.
+Other honest gaps: speeds were measured on version 1; the 200-page target was missed once under load; no screen-reader test; details that exist only in a picture get refused; the rehearsal goal (9 clean demos out of 10) has no reported result.
 
-Why volunteer all this? A jury that finds a weakness you hid doubts everything else. A jury that hears you name it, with its fix and metric, sees engineering judgment.`,
+Why say all this yourself? If the jury finds a weakness you hid, they doubt everything else. If you name it first, with its fix and its number, it shows you understand your own work.`,
     example: {
       title: 'Turning a limit into a defended plan',
       steps: [
