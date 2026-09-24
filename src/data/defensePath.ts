@@ -589,17 +589,32 @@ Honesty point: every number in the thesis was measured in cloud mode (with Gemin
     slides: [9],
     oneLiner: 'How SANAD decides what to (re)read, turns files into text, and stores them so a crash can never create a broken citation.',
     needs: 'Node 4 (the local stores).',
-    explain: `A workspace ("espace") is a folder of documents that belongs to a team. The manager (gestionnaire) drops files in it and clicks Sync.
+    glossary: [
+      { term: "Sync (synchronisation)", plain: "The button that tells SANAD: \"look at the folder again and update the index\". It reads new files, updates changed ones, removes deleted ones.", example: "You add a new PDF to the RH folder, click Sync, and now questions can find it." },
+      { term: "Hash / fingerprint (SHA-256)", plain: "A short code (64 characters) calculated from the exact content of a file. Same file = same code. Change one letter = completely different code. SHA-256 is the name of the calculation method.", example: "Like a fingerprint for a file: if the fingerprint didn't change, the file didn't change, so no need to read it again." },
+      { term: "Conversion", plain: "Turning a PDF, Word or PowerPoint file into plain text the computer can cut and search.", example: "A PDF page with a title and paragraphs becomes text with \"# Title\" and the paragraphs below." },
+      { term: "OCR (Optical Character Recognition)", plain: "Reading text from an IMAGE of text, like a scanned page. Tesseract is the free OCR tool SANAD can use (optional).", example: "A photocopy of a contract scanned as a picture: OCR turns the picture back into letters." },
+      { term: "Report row (sync report)", plain: "After each Sync, one line per file saying what happened: added, changed, unchanged, removed, failed, skipped.", example: "code-travail.pdf: unchanged · reglement.docx: changed · photo.jpg: skipped." },
+      { term: "Crash", plain: "When the program stops suddenly (power cut, error).", example: "The laptop battery dies in the middle of a Sync." },
+      { term: "Orphan file", plain: "A file that exists but that nothing points to. Harmless: nobody can reach it by searching.", example: "A book on the shelf with no card in the catalogue: nobody will ever be sent to it." },
+      { term: "Dangling / broken citation", plain: "A source that points to something that doesn't exist.", example: "A catalogue card says \"shelf 12\" but shelf 12 is empty. The worst failure for SANAD." },
+    ],
+    story: "Think of a librarian who updates her library every morning.\n\nShe has a list with the fingerprint of every book from yesterday. For each book on the shelf today, she takes its fingerprint again:\n• Same fingerprint → the book didn't change → she skips it (that's why an unchanged folder takes 0.09 s).\n• Different fingerprint → the book was edited → she FIRST throws away the old catalogue cards of that book, THEN makes new ones. Otherwise a reader could be sent to a sentence that no longer exists.\n• New book → she makes cards for it.\n• Book gone → she removes its cards.\n\nHer safety rule: she always puts the book on the shelf BEFORE she adds its card to the catalogue. If she's interrupted in between, the worst case is a book with no card (harmless). Never a card pointing to an empty shelf.",
+    explain: `A workspace is a folder of documents for a team. The manager puts files in it and clicks Sync. Here's what SANAD does, step by step.
 
-Step 1: fingerprints. For every file, SANAD computes a SHA-256 hash, a 64-character fingerprint of the file's bytes. Change one byte and the fingerprint changes completely. Comparing fingerprints with the ones saved last time gives each file a status: new, changed, unchanged or removed (change_detection.py). Unchanged files are skipped, which is why a second Sync of an unchanged folder takes 0.09 s.
+Step 1: fingerprints. For each file, SANAD calculates a SHA-256 fingerprint, a 64-character code that depends on every byte of the file. It compares it with the fingerprint saved last time. Each file gets a status: new, changed, unchanged, or removed. Unchanged files are skipped completely. That's why a second Sync of the same folder takes only 0.09 seconds.
 
-Step 2: delete before re-indexing. For a changed file, SANAD first deletes its old passages, and only then indexes the new version. Otherwise an old sentence could stay in the index and be cited after the document was corrected.
+Step 2: clean before re-reading. If a file changed, SANAD first DELETES everything it had stored for the old version, and only then reads the new version. Otherwise an old sentence could stay in the index and be shown as a source after the document was corrected.
 
-Step 3: conversion to text. PDF uses pymupdf4llm (keeps headings as Markdown). Scanned PDFs use OCR with Tesseract, optionally (config ocr_languages "fra+ara+eng"). Word and PowerPoint use markitdown (one section per slide). .txt and .md are read as they are.
+Step 3: convert to text. The computer can only cut and search plain text:
+• PDF → text with its titles kept (tool: pymupdf4llm).
+• Scanned PDF (a picture of text) → OCR with Tesseract, if turned on.
+• Word or PowerPoint → text (tool: markitdown), one section per slide.
+• .txt and .md files are already text.
 
-Step 4: safe write order. Parent sections (and figures) are written FIRST, vectors LAST. Deleting goes the other way: vectors first, then parents. So if the machine crashes halfway, the worst case is a parent file that nothing points to, invisible to search and overwritten by the next Sync. It is never a vector pointing to a section that doesn't exist, which would be a broken citation.
+Step 4: write in a safe order. SANAD writes the full sections FIRST and the search index LAST. When deleting, it does the opposite: index first, sections after. So if the computer crashes in the middle, the worst case is a section file that nothing points to (harmless, cleaned at the next Sync). A search result pointing to nothing, a broken citation, can never happen.
 
-Step 5: one file, one report row. Every file gets a line in the Sync report (added, changed, unchanged, failed, removed, skipped). A file that fails costs one row; it does not stop the other files. If the app dies mid-Sync, the next start closes the abandoned run from what was saved (recovery.py).`,
+Step 5: one line per file in the report. If one file fails (for example a damaged PDF), only that file fails. The others continue. If SANAD crashes during a Sync, the next start closes the unfinished Sync properly (file recovery.py).`,
     diagram: `flowchart TD
   F["File in workspace folder"] --> H["SHA-256 fingerprint"]
   H --> S{"Compare with last Sync"}
@@ -694,19 +709,29 @@ Step 5: one file, one report row. Every file gets a line in the Sync report (add
     slides: [9],
     oneLiner: 'Two sizes of text: small children for precise search, whole sections (parents) for the model to read.',
     needs: 'Node 5 (conversion gives text with headings).',
-    explain: `After conversion, the text is cut twice (chunking.py).
+    glossary: [
+      { term: "Chunk / chunking", plain: "Chunking = cutting a long text into smaller pieces. Each piece is a chunk.", example: "Cutting a 200-page PDF into thousands of small paragraphs." },
+      { term: "Parent (section)", plain: "A big piece: one section of the document, between 2,000 and 4,000 characters (about half a page to a page). This is what the AI READS to write the answer.", example: "The whole section containing Article 14 on the trial period." },
+      { term: "Child (passage)", plain: "A small piece of 500 characters (5–8 lines) cut from a parent. This is what SANAD SEARCHES. Each child remembers which parent it came from.", example: "The 6 lines of Article 14 that talk about managers (cadres)." },
+      { term: "Character", plain: "One letter, digit, space or punctuation mark. 500 characters ≈ 80–90 words.", example: "\"Article 14\" = 10 characters." },
+      { term: "Overlap", plain: "The part two neighbouring children share, so a sentence cut at the border still appears whole in one of them. SANAD: 100 characters.", example: "Child 1 = characters 0–500, child 2 = characters 400–900. The 100 characters 400–500 are in both." },
+      { term: "Heading (H1, H2, H3)", plain: "Titles in a document. H1 = big title, H2 = sub-title, H3 = sub-sub-title. SANAD cuts parents at these titles.", example: "\"Livre I\" (H1) → \"Titre II\" (H2) → \"Chapitre 1\" (H3)." },
+      { term: "Merge / split", plain: "Merge = glue a too-small section to its neighbour (below 2,000 characters). Split = cut a too-big one (above 4,000).", example: "A 600-character section is glued to the next one; a 9,000-character one is cut in 3." },
+    ],
+    story: "You are looking for a recipe in a thick cookbook.\n\nTo FIND it, you use the small index cards at the back: each card has just a few words (\"chicken tagine, p.45\"). Small cards = quick and precise matching. That's the 500-character CHILD.\n\nTo COOK, you don't cook from the index card. You open page 45 and read the whole recipe. That's the PARENT section.\n\nIf the index cards were whole pages, finding would be slow and fuzzy. If you cooked from the index card alone, you'd miss ingredients. So SANAD does both: search small, read big.",
+    explain: `After conversion, SANAD cuts the text twice.
 
-Parents are the sections. The text is split on its headings (H1 to H3). A section shorter than 2,000 characters is merged with its neighbour, and one longer than 4,000 is split. Each parent gets a label such as "Article 14", because the Code du travail has only about 22 headings for 588–589 articles, so headings alone would make huge sections. Parents are stored as JSON files in data/parents/<workspace>/.
+1. Big pieces, the PARENTS (sections). The text is cut at its titles (H1, H2, H3). Then the sizes are adjusted: a section under 2,000 characters is glued to its neighbour, and one over 4,000 characters is cut. Each parent gets a label such as "Article 14". The Code du travail has only about 22 titles for 589 articles, so titles alone would make gigantic sections. Parents are saved as files in data/parents/.
 
-Children are the search units. Each parent is cut into passages of 500 characters with 100 characters of overlap. Each child remembers its parent's id. Only children are embedded and stored in Qdrant.
+2. Small pieces, the CHILDREN (passages). Each parent is cut into pieces of 500 characters. Two neighbouring pieces share 100 characters (the overlap). Each child remembers the id of its parent. Only children go into the search index (Qdrant).
 
-Why two sizes? A vector summarises the meaning of a whole text in one point. A 500-character passage is about one idea, so its point is sharp and a question about that idea lands close to it. A 3,000-character section mixes several ideas, so its point is a blurry average and matches worse. That's the "search small" half.
+Why two sizes?
+• To SEARCH, small is better. SANAD turns each passage into a vector, one point that represents its meaning. A small passage talks about one idea, so its point is sharp and a question about that idea lands right next to it. A big section talks about 5 ideas, so its point is a blurry average and matches worse.
+• To ANSWER, big is better. A 500-character piece can stop in the middle of a sentence, just before the important number. So after the search, SANAD loads the whole parent section of each piece found, only once per parent, and the AI answers from those full sections.
 
-The model, though, needs enough context to answer and to cite the right article. A 500-character cut can stop mid-sentence, just before the key number. So after the search, SANAD loads the whole parent sections of the hits, once per parent even if four children matched, and the writer answers from those. That's the "read big" half.
+Why the overlap? If a sentence sits right on the cut between two children, the 100 shared characters make sure it appears whole in at least one of them.
 
-The overlap: if a sentence straddles the boundary between two children, the 100 shared characters mean it appears whole in at least one of them.
-
-Note that the size 500/100 was not tuned. Question 33 (node 13) shows its limit: the GRADER reads the 500-character children, not the whole section.`,
+Honest note: 500/100 was not tuned by experiment. Question 33 (lesson 10) shows the limit: the CHECKER reads only the small 500-character pieces.`,
     diagram: `flowchart LR
   T["Converted text"] --> P1["Parent: Article 13 section, 2000 to 4000 chars"]
   T --> P2["Parent: Article 14 section"]
@@ -795,15 +820,27 @@ Note that the size 500/100 was not tuned. Question 33 (node 13) shows its limit:
     slides: [9],
     oneLiner: 'E5 vectors find "licenciement" when you type "renvoi"; BM25 finds "article 14"; RRF merges both rankings.',
     needs: 'Node 6 (children are what gets searched).',
-    explain: `Every child is indexed two ways.
+    glossary: [
+      { term: "Embedding / vector", plain: "Turning a text into a list of numbers that captures its meaning. SANAD uses 768 numbers per text. Close meanings → close numbers.", example: "\"renvoyer un salarié\" and \"licenciement\" end up as two points very close to each other." },
+      { term: "Dense search (meaning search)", plain: "Search using vectors: finds texts with the same MEANING even with different words. SANAD's model: multilingual-e5-base (E5).", example: "You type \"virer\" and it still finds \"licenciement\"." },
+      { term: "Sparse / keyword search (BM25)", plain: "Search using the exact WORDS. BM25 is a classic formula that gives points to passages that contain the question's words.", example: "You type \"article 14\" and it finds the passage that literally says \"Article 14\"." },
+      { term: "Hybrid search", plain: "Doing both searches (meaning + exact words) and combining the results.", example: "Like asking two librarians, one who understands topics and one who checks exact titles, then merging their lists." },
+      { term: "Prefix (query: / passage:)", plain: "A small tag E5 needs in front of every text: \"passage: \" for document pieces, \"query: \" for questions. E5 was trained that way.", example: "\"query: durée période d'essai\". Without the tag, results get worse silently." },
+      { term: "Ranking / rank", plain: "The position in a results list: 1st, 2nd, 3rd…", example: "In the meaning list, Article 14 is 1st; in the words list, it is 3rd." },
+      { term: "RRF (Reciprocal Rank Fusion)", plain: "A way to merge two ranked lists using only POSITIONS, not scores. Each passage gets 1 divided by (position + a constant) from each list, then the two are added.", example: "1st in both lists beats 1st in only one list." },
+      { term: "Top 5 (top-k)", plain: "Keep only the best 5 results after merging. k is the number kept.", example: "Out of hundreds of passages, only 5 go to the next step." },
+    ],
+    story: "You ask two librarians for help.\n\nLibrarian A understands MEANING. You say \"can my boss fire me?\" and she brings pages about \"licenciement\", even though you never said that word.\n\nLibrarian B checks EXACT WORDS. You say \"article 14\" and he brings exactly the pages with \"Article 14\" printed on them.\n\nEach gives you a ranked list. You can't compare their \"scores\": A grades from 0 to 1, B grades with points that can go to 20. So you look only at POSITIONS: a page that is near the top of BOTH lists is surely good. You keep the best 5. That's hybrid search with RRF.",
+    explain: `Each small passage is stored in two ways, so it can be found in two ways.
 
-1. Dense vectors (meaning). The model intfloat/multilingual-e5-base turns a text into 768 numbers. Texts with similar meaning get nearby points, even with different words: "renvoyer un salarié" lands near "licenciement". It handles French and Arabic, runs on a CPU and is free. E5 was trained with prefixes, so documents are embedded as "passage: …" and questions as "query: …". If a prefix is missing, nothing crashes but results silently get worse, so a test fails if any embedded text lacks its prefix.
+1. By MEANING (dense vectors). The model multilingual-e5-base (called E5) turns a text into 768 numbers. Texts that mean the same thing get nearby numbers, even with different words: "renvoyer un salarié" lands near "licenciement". It works in French and Arabic, runs on a normal computer without a graphics card, and is free.
+Important detail: E5 was trained with small tags, "passage: " in front of document pieces and "query: " in front of questions. Forget the tag and nothing crashes, but results get worse without anyone noticing. So SANAD has an automatic test that fails if a tag is missing.
 
-2. Sparse keywords (exact words). BM25 (model Qdrant/bm25, computed with fastembed) scores passages by the exact words they share with the question, favouring rare words. It finds "Article 14", "CNSS" or an exact amount, which a meaning vector may blur.
+2. By EXACT WORDS (BM25). A classic formula that gives points to passages sharing the question's words. It finds "Article 14", "CNSS" or an exact amount, things a meaning search can blur.
 
-Fusion. Qdrant runs both searches (a "prefetch" for each) and merges them with Reciprocal Rank Fusion (RRF). RRF ignores the raw scores. A cosine similarity (roughly 0 to 1) and a BM25 score (unbounded) live on different scales, so adding them would be meaningless. RRF uses only each passage's RANK in each list: score = sum over lists of 1/(k + rank). The textbook constant is k = 60. SANAD's embedded Qdrant (qdrant-client local mode) uses k = 2, which works out to 1/(rank + 1), so top positions weigh more. A passage ranked high in both lists wins. SANAD keeps the top 5 (retrieval_depth_k = 5), with at most 4 figure cards per query.
+Combining the two (RRF). Qdrant runs both searches and merges the two ranked lists. It can't just add the scores, because they are on different scales (meaning scores go from about 0 to 1, word scores have no upper limit). So RRF uses only POSITIONS. Each passage gets 1/(k + position − 1) from each list, and the two are added. In SANAD's embedded Qdrant, k = 2, so this is simply 1/(position + 1): 1st place gives 1/2, 2nd gives 1/3, and so on (the textbook value of k is 60, but that's not what SANAD uses). A passage well placed in BOTH lists wins. SANAD keeps the top 5.
 
-Planning. Before searching, the planner can split one question into 1 to 5 searches (max_sub_queries = 5). Each search runs separately and the hits are merged.`,
+Planning first. Before searching, SANAD can split one question into 1 to 5 separate searches, for example "trial period length" and "renewal rules". Each runs on its own, then the results are merged.`,
     diagram: `flowchart LR
   Q["query: question"] --> D["E5 dense search"]
   Q --> B["BM25 keyword search"]
@@ -892,19 +929,35 @@ Planning. Before searching, the planner can split one question into 1 to 5 searc
     slides: [11],
     oneLiner: 'Diagrams and photos are found and displayed, but their AI description only helps find them.',
     needs: 'Nodes 5–7.',
-    explain: `In a PDF, a picture has no words, so text search cannot see it. SANAD's figure extraction (figures.py) fixes that in three steps.
+    glossary: [
+      { term: "Figure", plain: "Any picture inside a document: a diagram, a schema, a photo.", example: "The drawing of a pump in a technical manual." },
+      { term: "Layout model (Docling)", plain: "An AI tool that looks at a PDF page and finds WHERE things are: titles, text, tables, figures. It draws a box around each figure.", example: "It sees \"there's a diagram in the top half of page 7\"." },
+      { term: "Crop", plain: "Cutting out just one part of an image.", example: "Cutting the pump diagram out of the full page." },
+      { term: "Noise", plain: "Pictures that are not real content: logos, watermarks, decorative headers, full scanned pages.", example: "The company logo that appears at the top of all 40 pages." },
+      { term: "Caption / context", plain: "Caption = the text under a figure (\"Figure 3: pump impeller\"). Context = the section title, the nearby text and the page number.", example: "\"Figure 3 – Roue de la pompe, page 12\"." },
+      { term: "Description (AI-written)", plain: "2 to 4 sentences an AI writes about the picture, only to help the search find it.", example: "\"A cross-section of a centrifugal pump showing the impeller and the shaft.\"" },
+      { term: "Evidence", plain: "What an answer is allowed to rely on. For SANAD: only the document's TEXT.", example: "The description of a figure is NOT evidence." },
+    ],
+    story: "A museum guide can point at a painting and say \"look, it's here\", but she only states facts that are written on the museum's official label.\n\nIf a visitor asks \"what colour is the horse's saddle?\" and the label doesn't say, she answers \"I can't confirm that from the label, but here is the painting, look for yourself.\"\n\nSANAD treats pictures the same way: it finds them and shows them with their caption and page, but it only states facts that are written in the document's text.",
+    explain: `Inside a PDF, a picture has no words, so text search can't see it. SANAD adds a figure step (file figures.py) that works in three moves.
 
-1. Find the whole figure. For diagrams, a layout model (Docling) finds the figure's bounding box, and PyMuPDF crops that box at full resolution. Photos are cropped directly from their frame in the PDF. Docling alone was too slow (about 25 s per page) and saw a grid of 9 photos as one image. The direct path extracts 259 photos from a 32-page inspection report in 21 s, instead of about 13 minutes.
+1. Find the whole figure.
+• Diagrams: a layout model called Docling looks at the page and draws a box around each figure, then the tool PyMuPDF cuts out that box in high quality.
+• Photos: they are cut out directly from the PDF.
+Docling alone was too slow (about 25 seconds per page) and saw a grid of 9 photos as one picture. With the direct method, SANAD extracts 259 photos from a 32-page report in 21 seconds, instead of about 13 minutes.
 
-2. Discard the noise. An image repeated on 3 or more pages is a logo or watermark (figure_repeat_limit 3). One that covers more than about 70% of a page is a scanned page, not a figure. Tiny images and headers are dropped too.
+2. Throw away the noise.
+• A picture that appears on 3 or more pages is a logo or a watermark.
+• A picture that covers most of a page (about 70%) is a scanned page, not a figure.
+• Tiny images are dropped.
 
-3. Keep the context: caption, section title, the text around it (about 600 characters) and the page number.
+3. Keep the context: the caption, the section title, the text around the figure (about 600 characters) and the page number.
 
-The model then writes a 2–4 sentence description, which helps SEARCH find the figure. Each figure gets a search card tied to its text section, and at most 4 figure cards are returned per query.
+Then an AI writes a short description (2 to 4 sentences). It helps the SEARCH find the figure. At most 4 figures are shown per question.
 
-The key rule: that description is never given to the grader or the writer. An answer's claims rest only on the document's text. A model that misreads a wiring plan would otherwise produce a confident wrong answer that looks sourced. The accepted cost: a detail visible ONLY in an image gets a refusal (the figure is still shown, with caption and page, so the user can read it).
+The key rule: the description is NEVER given to the checker or to the writer of the answer. An AI can misread a diagram, and a wrong fact with a source attached looks exactly like a right one. So facts come only from the document's TEXT. The price: if a detail exists only inside a picture, SANAD refuses to state it, but it still shows the picture with its caption and page so you can read it yourself.
 
-Honesty point: figures arrived in the last, unnumbered version ("Suivante"). There is no frozen figure question set and no gate score yet; a 20-question figure set is planned at 3 months.`,
+Honest note: figures came in the last, unnumbered version. There is no exam for figures yet (a 20-question figure exam is planned).`,
     example: {
       title: 'A question about a pump manual',
       steps: [
