@@ -225,4 +225,101 @@ export const beginner: Record<number, Beginner> = {
       'Ne promettez les figures en direct que si la version déployée et le corpus synchronisé les gèrent vraiment.',
     ],
   },
+  14: {
+    plain: 'Pour mesurer honnêtement la qualité, l’équipe a écrit 60 questions à l’avance, puis les a « gelées » : on ne les change pas pour améliorer le score. 40 ont une réponse dans les documents, 20 n’en ont pas. Un juge automatique note ensuite chaque réponse.',
+    words: [
+      { term: 'Jeu de questions gelé', meaning: 'Une liste de questions fixée avant les tests, qu’on ne modifie pas en cachette.', example: 'Comme un sujet d’examen imprimé avant l’épreuve : on ne le réécrit pas après avoir vu les copies.' },
+      { term: 'Version du jeu', meaning: 'Si une question est vraiment mal écrite, on la corrige dans une nouvelle version du jeu, en notant pourquoi.', example: 'Jeu v1 → jeu v2 : « question 12 reclassée, sa réponse est dans l’article 240 ».' },
+      { term: 'Juge LLM', meaning: 'Un modèle de langage utilisé comme correcteur : il lit la question, la réponse et les sections citées, puis donne une note.', example: 'Il décide si la réponse est entièrement appuyée par le texte.' },
+      { term: 'Groundedness (appui)', meaning: 'La réponse dit-elle seulement ce qui est écrit dans les sections citées ?', example: 'Si la réponse ajoute un délai absent du texte, elle n’est pas appuyée.' },
+      { term: 'Relevancy (pertinence)', meaning: 'La réponse répond-elle bien à la question posée ?', example: 'Une réponse juste mais sur un autre sujet n’est pas pertinente.' },
+      { term: 'RAGAS', meaning: 'Une bibliothèque d’évaluation prévue au départ, puis abandonnée à cause d’un conflit de versions. Le projet utilise son propre juge.', example: 'Ne dites pas « RAGAS a donné 39/40 ».' },
+      { term: 'Régression', meaning: 'Quand une nouvelle version fait moins bien que l’ancienne sur quelque chose qui marchait.', example: 'Une question réussie en v3.0 échoue en v3.1.' },
+    ],
+    story: [
+      'MB écrit 60 questions : 40 dont la réponse est dans les textes, 20 dont elle n’y est pas. Le jeu est gelé.',
+      'Chaque nouvelle version de Sanad répond aux 60 questions. Le juge LLM note chaque réponse.',
+      'On découvre qu’une question classée « sans réponse » est en fait couverte par l’article 240.',
+      'On ne force pas Sanad à refuser : on crée une nouvelle version du jeu où la question est reclassée, en expliquant pourquoi, puis on rejoue les tests.',
+    ],
+  },
+  15: {
+    plain: 'La version 3.1.0 a obtenu 39 bonnes réponses sur 40 et 20 refus corrects sur 20. C’est un bon résultat, mais il faut le dire sans l’exagérer : c’est un petit test, rejoué sur les mêmes questions, et une seule question fait varier le score de 2,5 points.',
+    words: [
+      { term: '39/40 = 97,5 %', meaning: '39 réponses entièrement appuyées sur 40 questions couvertes. Chaque question vaut 2,5 %.', example: '38/40 = 95 % ; 39/40 = 97,5 %.' },
+      { term: 'Dénominateur', meaning: 'Le nombre du bas dans une fraction : sur combien de cas on mesure.', example: 'G1 est sur 40, G2 sur 20.' },
+      { term: 'Rejouer le même jeu', meaning: 'Refaire le test sur les mêmes 60 questions. Cinq rapports ne font pas 300 nouvelles questions.', example: 'Réussir 5 fois le même quiz ne prouve pas qu’on réussira un quiz différent.' },
+      { term: 'Variation du modèle', meaning: 'Un modèle de langage ne répond pas toujours exactement pareil. Une question peut passer une fois et échouer la suivante.', example: 'Une question passe en v3.0 et échoue en v3.1 sans changement de code important.' },
+      { term: 'g-in-033', meaning: 'Le nom de la question qui échoue encore : une question couverte que Sanad refuse à tort.', example: 'C’est le 1 manquant dans 39/40.' },
+    ],
+    story: [
+      'Le rapport v3.1.0 affiche 39/40 réponses appuyées, 20/20 refus corrects, et une source sur chacune des 39 réponses.',
+      'La seule question ratée (g-in-033) n’est pas une réponse inventée : c’est un refus en trop. Sanad a été trop prudent.',
+      'Passer de 38 à 39 est encourageant, mais c’est une seule question, sur le même jeu, notée par un juge qui peut se tromper.',
+      'Phrase honnête au jury : « Sur notre jeu de 40 questions en français, 39 réponses sont appuyées. C’est une bonne observation, pas une garantie pour tous les documents. »',
+    ],
+  },
+  16: {
+    plain: 'Un temps mesuré ne veut rien dire sans ses conditions : quelle machine, quelle charge, quelle version, combien de pages. L’objectif de 10 minutes pour 200 pages est tenu sur une machine au repos, mais pas sur une machine occupée. Il faut dire les deux.',
+    words: [
+      { term: 'Médiane', meaning: 'La valeur du milieu quand on range les résultats du plus petit au plus grand. Moins sensible aux cas extrêmes qu’une moyenne.', example: 'Temps 5, 6, 8, 9, 40 s : la médiane est 8 s ; la moyenne serait 13,6 s à cause du 40.' },
+      { term: '8,3 s', meaning: 'Le temps de réponse médian mesuré sur 20 questions, pour une version précise.', example: 'La moitié des réponses est plus rapide, l’autre moitié plus lente.' },
+      { term: 'Machine au repos / sous charge', meaning: 'Au repos : l’ordinateur ne fait rien d’autre. Sous charge : il est occupé par d’autres programmes.', example: 'Indexer 200 pages : 449,4 s et 375,3 s au repos ; 731,6 s sous charge.' },
+      { term: 'Cible (600 s)', meaning: 'L’objectif fixé : indexer 200 pages en moins de 10 minutes.', example: '731,6 s dépasse la cible ; 449,4 s la respecte.' },
+      { term: 'Re-synchronisation inchangée (0,09 s)', meaning: 'Si les fichiers n’ont pas changé, leurs empreintes sont identiques : Sanad ne refait pas les calculs.', example: 'Recliquer sur Synchroniser sans rien modifier prend presque 0 seconde.' },
+    ],
+    story: [
+      'L’équipe mesure le temps d’indexation de 200 pages trois fois.',
+      'Deux essais sur machine au repos : 449,4 s et 375,3 s. Les deux sont sous 600 s : objectif tenu.',
+      'Un essai sur machine occupée : 731,6 s. C’est au-dessus : objectif raté dans ce cas.',
+      'Au jury : « Oui au repos, non sous charge », avec les trois chiffres. Surtout pas une moyenne qui cacherait l’échec.',
+    ],
+  },
+  17: {
+    plain: 'Un bon travail dit aussi ce qu’il ne sait pas faire. Les limites de Sanad : peu de questions de test, surtout en français, un juge proche du modèle noté, et un mode local jamais évalué en entier. Et une question couverte est encore refusée à tort.',
+    words: [
+      { term: 'Limite', meaning: 'Ce que les résultats ne couvrent pas, ou ce qui ne marche pas encore.', example: '39/40 ne dit rien sur des documents en arabe.' },
+      { term: 'Refus trop prudent', meaning: 'Sanad refuse alors que la réponse est dans les documents. Moins grave qu’une invention, mais c’est une erreur.', example: 'g-in-033 : la réponse est dans l’article 66, et Sanad refuse.' },
+      { term: 'Vérificateur', meaning: 'L’étape qui décide si les passages trouvés répondent à la question. Il lit les petits passages (enfants), pas les sections complètes.', example: 'Il lit 500 caractères et dit « hors sujet ».' },
+      { term: 'Passage coupé', meaning: 'Un enfant fait au plus 500 caractères. L’information utile peut se trouver juste après la coupure.', example: 'Le délai d’un mois de l’article 66 est après la coupure.' },
+      { term: 'Effet de bord', meaning: 'Une conséquence imprévue d’un changement, ailleurs que là où on regardait.', example: 'Montrer plus de texte au vérificateur répare g-in-033 mais peut faire perdre des refus corrects.' },
+    ],
+    story: [
+      'La question g-in-033 porte sur un délai qui est dans l’article 66.',
+      'La recherche trouve un petit passage de cet article, mais il s’arrête juste avant la phrase du délai d’un mois.',
+      'Le vérificateur lit ce passage, ne voit pas de délai, et dit « hors sujet ». Sanad finit par refuser.',
+      'Idée de correction : montrer la section entière au vérificateur. Mais sans refaire les 60 questions, on ne sait pas si cela casse les 20 refus corrects. Donc on ne le change pas juste avant la soutenance.',
+    ],
+  },
+  18: {
+    plain: 'Pour la suite, chaque idée d’amélioration doit venir avec un test qui dira si elle marche. On ne promet pas « on ajoutera l’arabe » : on dit comment on mesurera que l’arabe fonctionne.',
+    words: [
+      { term: 'Perspective', meaning: 'Ce que l’équipe ferait ensuite pour améliorer le projet.', example: 'Réparer g-in-033, mesurer l’arabe, mesurer les figures.' },
+      { term: 'Critère de réussite', meaning: 'La condition fixée à l’avance qui dira si l’amélioration a marché.', example: '« g-in-033 devient appuyée ET les refus restent à 20/20. »' },
+      { term: 'Compromis', meaning: 'Améliorer une chose peut en abîmer une autre.', example: 'Plus de contexte aide à trouver les réponses, mais peut faire répondre à des questions hors documents.' },
+      { term: 'Questions de référence', meaning: 'Un jeu de questions préparé avant de changer quoi que ce soit, pour comparer avant et après.', example: 'Un jeu de questions en arabe sur des documents arabes.' },
+      { term: 'Feuille de route', meaning: 'La liste ordonnée des prochaines étapes. Ici, chaque étape est liée à un défaut observé et à un test.', example: 'Défaut → changement → mesure.' },
+    ],
+    story: [
+      'Limite observée : g-in-033 est refusée parce que le vérificateur lit un passage trop court.',
+      'Changement proposé : lui faire lire plus de texte (grading.py, nodes.py).',
+      'Test : rejouer les 60 questions. Succès seulement si g-in-033 passe ET si les 20 refus restent corrects.',
+      'Pour l’arabe : d’abord écrire des questions de référence en arabe, mesurer la version actuelle, changer, puis remesurer sur le même jeu.',
+    ],
+  },
+  19: {
+    plain: 'À la fin, vous devez pouvoir raconter Sanad de tête en une minute : le besoin, le chemin d’une question, un chiffre vérifié et une limite honnête. Si vous savez raconter ça, vous avez compris le projet.',
+    words: [
+      { term: 'Le besoin', meaning: 'Pourquoi le projet existe : répondre à partir de documents, avec la source, ou dire « je ne sais pas ».', example: 'Une RH qui doit vérifier une règle du Code du travail.' },
+      { term: 'Le chemin technique', meaning: 'Le trajet d’un document puis d’une question dans Sanad.', example: 'PDF → Sync → sections et passages → recherche → agent → réponse ou refus.' },
+      { term: 'Le chiffre vérifié', meaning: 'Un résultat mesuré et consigné dans un rapport, avec son contexte.', example: '39/40 réponses appuyées et 20/20 refus, version 3.1.0, jeu en français.' },
+      { term: 'La limite honnête', meaning: 'Ce qui ne marche pas encore ou n’a pas été mesuré, dit avant qu’on vous le demande.', example: 'g-in-033 refusée à tort ; petit jeu surtout en français ; juge automatique.' },
+    ],
+    story: [
+      'Besoin : « Les documents RH sont longs, et une réponse qui a l’air juste ne suffit pas. Sanad répond avec la source, ou refuse. »',
+      'Chemin : « Un PDF est synchronisé et découpé en sections et petits passages, indexés par le sens et par les mots. Un agent cherche, vérifie, reformule au plus deux fois, lit les sections, puis répond ou refuse. »',
+      'Chiffre : « Sur notre jeu français de la version 3.1.0 : 39 réponses appuyées sur 40, 20 refus corrects sur 20. »',
+      'Limite : « Une question couverte est encore refusée, parce que le passage lu par le vérificateur s’arrête avant le délai. »',
+    ],
+  },
 };
