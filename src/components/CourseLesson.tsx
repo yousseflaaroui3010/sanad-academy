@@ -2,11 +2,15 @@ import type { Lesson } from '../data/lessons';
 import { LessonVisual } from './LessonVisual';
 import { EvidenceBridge } from './EvidenceBridge';
 import { AnswerCoach } from './AnswerCoach';
+import { BeginnerLayer } from './BeginnerLayer';
+import { plainLabels } from '../data/plainLabels';
+import { beginner } from '../data/beginner';
 
-export function CourseLesson({ lesson, onSkip, onPrevious, hasNext, companion = false }: {
+export function CourseLesson({ lesson, onSkip, onPrevious, onNext, hasNext, companion = false }: {
   lesson: Lesson;
   onSkip: () => void;
   onPrevious: () => void;
+  onNext?: () => void;
   hasNext: boolean;
   companion?: boolean;
 }) {
@@ -25,20 +29,22 @@ export function CourseLesson({ lesson, onSkip, onPrevious, hasNext, companion = 
         </aside>
       )}
 
+      <BeginnerLayer data={beginner[lesson.slide]} />
+
       <LessonVisual slide={lesson.slide} />
       <EvidenceBridge slide={lesson.slide} />
 
       {!companion && <section aria-labelledby="comprendre" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 leading-relaxed sm:p-6">
-        <h2 id="comprendre" className="text-xl font-semibold">Comprendre sans réciter</h2>
-        <p>{lesson.rule}</p>
-        <h3 className="font-semibold">La science ou la technique derrière</h3>
-        <p>{lesson.science}</p>
+        <h2 id="comprendre" className="text-xl font-semibold">Maintenant, la version technique</h2>
+        <p>{plainLabels(lesson.rule)}</p>
+        <h3 className="font-semibold">Comment ça marche</h3>
+        <p>{plainLabels(lesson.science)}</p>
         <div className="rounded-xl bg-slate-50 p-4">
           <h3 className="font-semibold">Un exemple concret</h3>
           <p className="mt-2">{lesson.example}</p>
         </div>
         <div className="rounded-xl border border-slate-200 p-4">
-          <h3 className="font-semibold">Où regarder dans le vrai projet</h3>
+          <h3 className="font-semibold">Où c’est dans le code (pour le jury)</h3>
           <p className="mt-2 text-sm">{lesson.code}</p>
         </div>
       </section>}
@@ -52,7 +58,7 @@ export function CourseLesson({ lesson, onSkip, onPrevious, hasNext, companion = 
         </ul>
       </section>}
 
-      {!companion && <AnswerCoach key={lesson.slide} exerciseId={lesson.slide} heading="Exercice · sans notes, si vous avez le temps" question={lesson.gate} onSkip={onSkip} skipLabel={hasNext ? 'Passer et continuer →' : 'Passer et finir'} />}
+      {!companion && <AnswerCoach key={lesson.slide} exerciseId={lesson.slide} heading="Exercice · sans notes, si vous avez le temps" question={lesson.gate} onSkip={onSkip} skipLabel={hasNext ? 'Passer et continuer →' : 'Passer et finir'} onNext={onNext} />}
       <button type="button" onClick={onPrevious} className="rounded-lg border border-slate-400 px-4 py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">← Revenir à la leçon précédente</button>
     </article>
   );

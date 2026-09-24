@@ -108,8 +108,8 @@ export default function App() {
       </nav>
       <main id="contenu" className="mx-auto max-w-5xl px-4 py-6 sm:px-6" key={current}>
         {current === 0
-          ? <FirstLesson onSkip={skip} companion={companion} />
-          : <CourseLesson lesson={lessons[current - 1]} onSkip={skip} onPrevious={() => navigate(current - 1)} hasNext={current < total - 1} companion={companion} />}
+          ? <FirstLesson onSkip={skip} onNext={() => navigate(1)} companion={companion} />
+          : <CourseLesson lesson={lessons[current - 1]} onSkip={skip} onPrevious={() => navigate(current - 1)} onNext={current < total - 1 ? () => navigate(current + 1) : undefined} hasNext={current < total - 1} companion={companion} />}
       </main>
       </>}
     </div>

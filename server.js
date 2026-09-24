@@ -2,7 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { grade, CoachError, coachConfigured } from './coach/grade.js';
+import { grade, checkProbe, CoachError, coachConfigured } from './coach/grade.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,7 +32,7 @@ const MIME_TYPES = {
   '.map': 'application/json',
 };
 
-// Answer coach: POST /api/coach/grade. The Gemini key (GEMINI_API_KEY) stays on the server.
+// Answer coach: POST /api/coach/grade, and /api/coach/check for the final question. The Gemini key (GEMINI_API_KEY) stays on the server.
 // Every call spends the key's quota, so each visitor and the whole site are rate limited.
 const COACH_MAX_BODY = 32 * 1024;
 const COACH_PER_IP = { limit: 30, windowMs: 10 * 60 * 1000 };
@@ -62,7 +62,7 @@ function sendJson(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-function handleCoach(req, res) {
+function handleCoach(req, res, action) {
   // Railway's proxy puts the visitor's address first in X-Forwarded-For.
   const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
   if (overLimit(`ip:${ip}`, COACH_PER_IP) || overLimit('global', COACH_GLOBAL)) {
@@ -91,7 +91,7 @@ function handleCoach(req, res) {
       return;
     }
     try {
-      sendJson(res, 200, await grade(payload));
+      sendJson(res, 200, await action(payload));
     } catch (error) {
       if (error instanceof CoachError) {
         sendJson(res, error.status, { error: error.code });
@@ -104,12 +104,13 @@ function handleCoach(req, res) {
 }
 
 const server = http.createServer((req, res) => {
-  if (req.url.split('?')[0] === '/api/coach/grade') {
+  const coachAction = { '/api/coach/grade': grade, '/api/coach/check': checkProbe }[req.url.split('?')[0]];
+  if (coachAction) {
     if (req.method !== 'POST') {
       sendJson(res, 405, { error: 'method_not_allowed' });
       return;
     }
-    handleCoach(req, res);
+    handleCoach(req, res, coachAction);
     return;
   }
 

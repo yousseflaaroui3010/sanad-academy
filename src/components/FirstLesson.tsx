@@ -1,6 +1,8 @@
 import { LessonVisual } from './LessonVisual';
 import { EvidenceBridge } from './EvidenceBridge';
 import { AnswerCoach } from './AnswerCoach';
+import { BeginnerLayer } from './BeginnerLayer';
+import { beginner } from '../data/beginner';
 
 const parcours = [
   { temps: 'Jour 1', slides: '1 à 5', sujet: 'Le problème, nos trois promesses, puis le principe du RAG.' },
@@ -11,7 +13,7 @@ const parcours = [
   { temps: 'Jour 3', slides: '17 à 19 + annexes', sujet: 'Les limites, la suite et les questions du jury.' },
 ];
 
-export function FirstLesson({ onSkip, companion = false }: { onSkip: () => void; companion?: boolean }) {
+export function FirstLesson({ onSkip, onNext, companion = false }: { onSkip: () => void; onNext?: () => void; companion?: boolean }) {
   return (
     <article className="mx-auto max-w-3xl space-y-6 pb-12">
       <header className="space-y-3">
@@ -20,6 +22,8 @@ export function FirstLesson({ onSkip, companion = false }: { onSkip: () => void;
         <p className="text-base leading-relaxed text-slate-700">Nous suivons la présentation réelle, puis le rapport. Pour chaque idée, le code tranche ce qui fonctionne vraiment.</p>
         <button type="button" onClick={onSkip} className="rounded-lg border border-blue-700 bg-white px-4 py-2 font-semibold text-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">Je connais déjà · passer →</button>
       </header>
+
+      <BeginnerLayer data={beginner[1]} />
 
       {!companion && <section aria-labelledby="parcours" className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
         <h2 id="parcours" className="text-xl font-semibold">Le parcours · 3 heures par jour au maximum</h2>
@@ -35,9 +39,9 @@ export function FirstLesson({ onSkip, companion = false }: { onSkip: () => void;
       </section>}
 
       {!companion && <section aria-labelledby="idee" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 leading-relaxed sm:p-6">
-        <h2 id="idee" className="text-xl font-semibold">L’idée, avec la technique derrière</h2>
-        <p><strong>[Invariant]</strong> Un modèle de langage sait produire une phrase plausible ; cela ne prouve pas qu’elle est juste. Sanad commence donc par chercher dans les documents de <em>l’espace actif</em> : un espace est un groupe de fichiers gardé à part des autres.</p>
-        <p><strong>[Convention]</strong> On appelle cela <strong>RAG</strong>, pour « génération augmentée par recherche ». En clair : retrouver les passages utiles <em>avant</em> de rédiger. Ce n’est pas réentraîner le modèle sur vos fichiers.</p>
+        <h2 id="idee" className="text-xl font-semibold">Maintenant, la version technique</h2>
+        <p><strong>Toujours vrai :</strong> Un modèle de langage sait produire une phrase plausible ; cela ne prouve pas qu’elle est juste. Sanad commence donc par chercher dans les documents de <em>l’espace actif</em> : un espace est un groupe de fichiers gardé à part des autres.</p>
+        <p><strong>Choix du vocabulaire :</strong> On appelle cela <strong>RAG</strong>, pour « génération augmentée par recherche ». En clair : retrouver les passages utiles <em>avant</em> de rédiger. Ce n’est pas réentraîner le modèle sur vos fichiers.</p>
         <div className="rounded-xl bg-slate-50 p-4">
           <h3 className="font-semibold">Exemple, pas à pas</h3>
           <ol className="mt-2 list-decimal space-y-2 ps-5">
@@ -46,7 +50,7 @@ export function FirstLesson({ onSkip, companion = false }: { onSkip: () => void;
             <li>Si ces sections permettent une réponse, le modèle rédige à partir d’elles et Sanad affiche les sources. Sinon, il peut chercher autrement, puis refuser.</li>
           </ol>
         </div>
-        <p><strong>[Invariant du code]</strong> L’objet « réponse finale » exige au moins une source. <strong>[Règle de prudence]</strong> Une carte source indique où vérifier ; elle ne prouve pas à elle seule que chaque phrase est fidèle au document.</p>
+        <p><strong>Toujours vrai dans le code :</strong> L’objet « réponse finale » exige au moins une source. <strong>Prudence :</strong> Une carte source indique où vérifier ; elle ne prouve pas à elle seule que chaque phrase est fidèle au document.</p>
         <p className="text-sm text-slate-600">À retrouver dans le projet : <code>sync.py</code> prépare les fichiers ; <code>agent/graph.py</code> trace les étapes de la question ; <code>agent/state.py</code> impose la source. Le rapport détaille la science au chapitre 2.</p>
       </section>}
 
@@ -63,7 +67,7 @@ export function FirstLesson({ onSkip, companion = false }: { onSkip: () => void;
         </ul>
       </section>}
 
-      {!companion && <AnswerCoach exerciseId={1} heading="Exercice 1 · Sans notes" question="Votre espace ne contient qu’un manuel du personnel. Vous demandez le prix du train demain. Que doit faire Sanad, et pourquoi ? Qu’est-ce qu’une carte source prouverait, et qu’est-ce qu’elle ne prouverait pas ?" onSkip={onSkip} skipLabel="Passer cette leçon →" />}
+      {!companion && <AnswerCoach exerciseId={1} heading="Exercice 1 · Sans notes" question="Votre espace ne contient qu’un manuel du personnel. Vous demandez le prix du train demain. Que doit faire Sanad, et pourquoi ? Qu’est-ce qu’une carte source prouverait, et qu’est-ce qu’elle ne prouverait pas ?" onSkip={onSkip} skipLabel="Passer cette leçon →" onNext={onNext} />}
     </article>
   );
 }
