@@ -1,3 +1,7 @@
+> **STATUS 24 Sept 2026, evening: DONE.** Final files are in Downloads: `presentationkharia_v2.pptx`,
+> `Page1_PFA_v2.docx` and `Page1_PFA_v2.pdf`. The report got a short optional section 1.5 (with a Word
+> comment explaining how to delete it) and a new chapter 7 (costs, hosting, market). Nothing below is still pending.
+
 # Handoff: report and presentation changes (24 Sept 2026, defense 26 Sept)
 
 Work paused because of low battery. This file holds the request, the plan, what is done,

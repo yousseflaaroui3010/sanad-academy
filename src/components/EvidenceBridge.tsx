@@ -19,10 +19,10 @@ export function EvidenceBridge({ slide }: { slide: number }) {
         </div>
       </div>
       <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-        <h3 className="text-sm font-bold text-emerald-950">3 · Le code de origin/main</h3>
-        <ul className="mt-2 space-y-2">
-          {item.code.map(({ where, meaning }) => (
-            <li key={where} className="text-sm leading-relaxed"><code className="font-semibold text-emerald-950">{where}</code><span className="block text-slate-800">{meaning}</span></li>
+        <h3 className="text-sm font-bold text-emerald-950">3 · Dans le code : la fonction, et comment elle marche</h3>
+        <ul className="mt-2 space-y-3">
+          {item.code.map(({ fn, how }) => (
+            <li key={fn} className="text-sm leading-relaxed"><code className="font-semibold text-emerald-950">{fn}</code><span className="block text-slate-800">{how}</span></li>
           ))}
         </ul>
       </div>
