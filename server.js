@@ -45,33 +45,26 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Check if file exists; if not, fallback to index.html for SPA routing
+  // This course has one page. Old audio and removed course URLs must be 404.
   fs.stat(filePath, (err, stats) => {
     if (err || !stats.isFile()) {
-      filePath = path.join(DIST_DIR, 'index.html');
-      fs.stat(filePath, (err2, stats2) => {
-        if (err2 || !stats2.isFile()) {
-          res.writeHead(404, { 'Content-Type': 'text/plain' });
-          res.end('404 Not Found - Build artifacts missing');
-          return;
-        }
-        serveFile(req, res, filePath, stats2, true);
-      });
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('404 Not Found');
       return;
     }
 
-    serveFile(req, res, filePath, stats, false);
+    serveFile(req, res, filePath, stats);
   });
 });
 
-function serveFile(req, res, filePath, stats, isSpaFallback) {
+function serveFile(req, res, filePath, stats) {
   const ext = path.extname(filePath).toLowerCase();
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
   const totalSize = stats.size;
 
   // Caching headers
   let cacheControl = 'public, max-age=3600';
-  if (isSpaFallback || ext === '.html' || ext === '.json' || path.basename(filePath) === 'sw.js') {
+  if (ext === '.html' || ext === '.json' || path.basename(filePath) === 'sw.js') {
     cacheControl = 'no-cache, no-store, must-revalidate';
   } else if (filePath.includes('/assets/')) {
     cacheControl = 'public, max-age=31536000, immutable';
