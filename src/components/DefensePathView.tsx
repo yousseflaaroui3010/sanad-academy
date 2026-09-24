@@ -8,7 +8,6 @@ import {
   Circle,
   CircleDot,
   FileCode2,
-  KeyRound,
   Map as MapIcon,
   Mic,
   Mountain,
@@ -18,13 +17,12 @@ import {
 } from 'lucide-react';
 import { MermaidDiagram } from './MermaidDiagram';
 import { AnswerCoach } from './AnswerCoach';
-import { GeminiApiKeyModal } from './GeminiApiKeyModal';
 import { DEFENSE_PATH, PATH_STAGES, TERRITORY_MINDMAP } from '../data/defensePath';
-import type { PathNode } from '../data/defensePath';
-import type { CoachExercise } from '../services/coachService';
+import type { PathGate, PathNode } from '../data/defensePath';
 import {
   getAllRecords,
   pickWarmups,
+  recordAttempt,
   resetLedger,
   subscribeLedger,
 } from '../services/progressLedger';
@@ -66,7 +64,6 @@ export const DefensePathView: React.FC<DefensePathViewProps> = ({ lang }) => {
   const [records, setRecords] = useState(getAllRecords);
   const [showMap, setShowMap] = useState(nodeIdx === 0);
   const [showLedger, setShowLedger] = useState(false);
-  const [showKeyModal, setShowKeyModal] = useState(false);
 
   useEffect(() => subscribeLedger(() => setRecords(getAllRecords())), []);
   useEffect(() => {
@@ -79,7 +76,7 @@ export const DefensePathView: React.FC<DefensePathViewProps> = ({ lang }) => {
 
   const node = DEFENSE_PATH[nodeIdx];
   const allGates = useMemo(() => {
-    const m = new Map<string, { gate: CoachExercise; node: PathNode }>();
+    const m = new Map<string, { gate: PathGate; node: PathNode }>();
     DEFENSE_PATH.forEach((n) => n.gates.forEach((g) => m.set(g.id, { gate: g, node: n })));
     return m;
   }, []);
@@ -95,6 +92,17 @@ export const DefensePathView: React.FC<DefensePathViewProps> = ({ lang }) => {
     }
     return picked.map((id) => allGates.get(id)!).filter(Boolean);
   }, [nodeIdx, allGates]);
+
+  // Feeds the progress ledger (passed cold, watch list) from each graded answer.
+  const record = (id: string) => (graded: { verdict: 'pass' | 'not_yet' | 'unsure'; attempt: number; confidence: number; freshGate: boolean }) => {
+    if (graded.verdict === 'unsure') return;
+    recordAttempt(graded.freshGate ? `${id}#fresh` : id, {
+      passed: graded.verdict === 'pass',
+      attemptNumber: graded.attempt,
+      confidence: graded.confidence,
+      helped: graded.attempt > 1 || graded.freshGate,
+    });
+  };
 
   const go = (idx: number) => {
     setNodeIdx(idx);
@@ -129,7 +137,6 @@ export const DefensePathView: React.FC<DefensePathViewProps> = ({ lang }) => {
 
   return (
     <div className="max-w-7xl mx-auto w-full flex gap-6">
-      <GeminiApiKeyModal isOpen={showKeyModal} onClose={() => setShowKeyModal(false)} />
       {/* Left rail: the whole path, always visible on desktop */}
       <aside className="hidden lg:block w-72 shrink-0">
         <div className="sticky top-20 liquid-glass rounded-3xl p-4 space-y-4 max-h-[calc(100vh-6rem)] overflow-y-auto">
@@ -185,13 +192,6 @@ export const DefensePathView: React.FC<DefensePathViewProps> = ({ lang }) => {
                 className="lg:hidden inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold border border-black/10"
               >
                 <MapIcon size={12} /> {fr ? 'Carte' : 'Map'}
-              </button>
-              <button
-                onClick={() => setShowKeyModal(true)}
-                className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold border border-black/10"
-                title={fr ? 'Clé Gemini pour la correction par IA' : 'Gemini key for AI grading'}
-              >
-                <KeyRound size={12} /> {fr ? 'Correcteur IA' : 'AI grader'}
               </button>
               <button
                 onClick={() => setShowLedger((s) => !s)}
@@ -274,10 +274,13 @@ export const DefensePathView: React.FC<DefensePathViewProps> = ({ lang }) => {
                 {warmups.map(({ gate, node: from }) => (
                   <AnswerCoach
                     key={`warm-${node.id}-${gate.id}`}
-                    exercise={gate}
-                    lang={lang}
-                    compact
-                    label={`${fr ? 'Rappel du nœud' : 'Recall from node'} ${from.number}`}
+                    exerciseId={gate.id}
+                    heading={`${fr ? 'Rappel du nœud' : 'Recall from node'} ${from.number}`}
+                    question={gate.prompt}
+                    feedbackLang={lang}
+                    onGraded={record(gate.id)}
+                    onSkip={() => undefined}
+                    skipLabel={fr ? 'Plus tard' : 'Later'}
                   />
                 ))}
               </section>
@@ -389,9 +392,13 @@ export const DefensePathView: React.FC<DefensePathViewProps> = ({ lang }) => {
               {node.gates.map((g, i) => (
                 <AnswerCoach
                   key={g.id}
-                  exercise={g}
-                  lang={lang}
-                  label={`${fr ? 'Porte' : 'Gate'} ${node.number}.${i + 1}`}
+                  exerciseId={g.id}
+                  heading={`${fr ? 'Porte' : 'Gate'} ${node.number}.${i + 1}`}
+                  question={g.prompt}
+                  feedbackLang={lang}
+                  onGraded={record(g.id)}
+                  onSkip={() => nodeIdx < DEFENSE_PATH.length - 1 && go(nodeIdx + 1)}
+                  skipLabel={fr ? 'Passer au nœud suivant' : 'Skip to the next node'}
                 />
               ))}
             </section>

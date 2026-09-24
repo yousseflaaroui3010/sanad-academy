@@ -1,51 +1,37 @@
-# Sanad Academy
+# Sanad Académie
 
-Study app for the SANAD master's defense (ENSA Fès). Start with the **Defense Path** tab: 19 nodes from the big picture to the code, each ending with gates you answer in your own words.
+Parcours de préparation à la soutenance, en français. Il suit d'abord la
+présentation `Soutenance_Sanad.pptx`, puis le rapport, et vérifie les faits dans
+le code du projet Sanad. Les 19 diapositives principales et les cinq annexes
+forment un parcours consultable dans l’ordre, avec un exercice facultatif
+par leçon. « Passer » avance sans compter la leçon comme maîtrisée.
+Chaque leçon possède un schéma, une carte mentale, une chronologie ou un
+graphique adapté à son sujet. Les données des graphiques proviennent du
+rapport et des rapports d'évaluation du projet, pas d'une simulation.
 
-## Answer Coach (AI grading)
+Le bouton **Mode côte à côte** réduit la page au schéma et à ses trois
+repères : diapositive, section du rapport et fonctions du code. Les schémas
+des diapositives 5, 7–11, 14 et des annexes 20, 22–24 ouvrent chaque étape
+pour montrer le comportement réel et le fichier qui le porte. La recherche
+dans le code a été croisée avec `codebase-memory-mcp` ; les figures sont
+vérifiées dans `origin/main` après la fusion #157. Les résultats v3.1.0
+précèdent cette fusion et ne constituent pas une évaluation des figures.
 
-Each gate has a hidden model answer, checked against the RAG_project_ENSA code, the report and the slides. When you submit an answer (with a 1–5 confidence rating), the coach grades it: Pass / Not yet, the step where the reasoning broke, then a hint ladder (question → rule → similar example). The model answer stays hidden until you pass or reach attempt 4, which also gives a walkthrough and a fresh gate.
+## Lancer
 
-Grading needs a Gemini API key, in one of two places:
-
-- **Server (recommended on Railway):** set `GEMINI_API_KEY` (and optionally `GEMINI_MODEL`) in the service variables. `server.js` exposes `POST /api/coach`, so the key never reaches the browser.
-- **Browser:** click **AI grader** in the Defense Path header and paste a key. It is stored in this browser's localStorage only.
-
-With no key, the coach falls back to an offline keyword check and says so on screen.
-
-Progress (passed cold, watch list, due for review) is kept in this browser's localStorage.
-
----
-
-# React + TypeScript + Vite
-
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```sh
+npm ci
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+`npm run build` vérifie les types et prépare les fichiers servis par `node
+server.js`. `npm run lint` vérifie le code. Le site publié sur Railway est
+alimenté par un déploiement depuis cette copie locale, et non par une liaison
+automatique avec GitHub.
+
+Les anciens cours, le laboratoire, l'accès Gemini et les narrations audio ont
+été retirés. Le nouveau parcours n'utilise ni clé API ni service de modèle.
+
+## Defense Path (English)
+
+The header switch opens a second section: 19 lessons from the big picture to the code, each with the technical words explained first, an everyday story, a diagram, and gates. Gate answers are graded by the same server-side coach (`POST /api/coach/grade`, `GEMINI_API_KEY`); their hidden model answers live in `coach/pathExercises.js` and `npm run build` checks they match the questions in `src/data/defensePath.ts`. Progress for this section is kept in the browser.

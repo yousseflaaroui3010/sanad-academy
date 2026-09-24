@@ -2,8 +2,14 @@
 // beginner needs it, mapped to the defense slides. Every fact here was checked
 // against the RAG_project_ENSA code (file names cited), the thesis report
 // (printed page numbers, "p.") and the release files in docs/evals/.
-// Gates carry a hidden model answer that the Answer Coach grades against.
-import type { CoachExercise } from '../services/coachService';
+// Gates hold only the question shown on the page. Their hidden model answers live on the
+// server (coach/pathExercises.js) and are graded through POST /api/coach/grade.
+
+export interface PathGate {
+  id: string;
+  prompt: string;
+  source?: string;
+}
 
 export type ClaimLabel = 'Invariant' | 'Rule of thumb' | 'Convention';
 
@@ -26,7 +32,7 @@ export interface PathNode {
   iceberg: [string, string];
   code: { file: string; what: string }[];
   sayItFr: string;
-  gates: CoachExercise[];
+  gates: PathGate[];
   // Beginner layer: every technical word explained before it is used.
   glossary?: { term: string; plain: string; example: string }[];
   story?: string;
@@ -122,7 +128,6 @@ export const TERRITORY_MINDMAP = `mindmap
       Docker and Railway
       Code map`;
 
-const kp = (point: string, ...keywords: string[]) => ({ point, keywords });
 
 export const DEFENSE_PATH: PathNode[] = [
   // ───────────────────────────── STAGE 1 ─────────────────────────────
@@ -185,30 +190,7 @@ SANAD's idea in one sentence (slide 1): an assistant that answers ONLY from your
     sayItFr:
       'Les assistants comme ChatGPT écrivent bien, mais rien ne garantit que c’est vrai : ils prédisent un texte plausible, ils ne vérifient pas. Trois cas réels le montrent : New York en 2023, Air Canada en 2024, et Stanford qui mesure une réponse sur six fausse ou mal sourcée. Or la réponse existe déjà dans les documents de l’équipe. Sanad répond à partir de ces documents, montre la source, et refuse quand il ne sait pas.',
     gates: [
-      {
-        id: 'g01-1',
-        prompt:
-          'A colleague says: "Just paste the Code du travail PDF into ChatGPT, it will answer HR questions fine." Using what you know about how an LLM produces text, explain the precise risk, and name the two behaviours SANAD adds to remove it.',
-        modelAnswer:
-          'The risk: an LLM writes the most plausible continuation of the text; it does not verify facts. So it can produce a confident, fluent answer that no passage supports, for example a wrong trial-period length or an invented article, and the reader has no way to check it (the New York lawyers with six invented rulings, Air Canada forced to honour an invented refund rule). SANAD adds two behaviours: (1) every answer shows its sources (file and section, opening the exact passage), and the code cannot build an answer without sources; (2) when the documents do not contain the answer, it refuses honestly ("not in the documents") instead of guessing. Both are measured before each release (G3 and G2).',
-        keyPoints: [
-          kp('LLM predicts plausible text, does not verify', 'plausib', 'predict', 'prédit', 'vérifi', 'verify', 'invent', 'guess', 'devine'),
-          kp('Shows the source for every answer', 'source', 'cite', 'citation', 'passage'),
-          kp('Refuses when the answer is not in the documents', 'refus', 'refuse', 'not in the doc', 'pas dans', "don't know", 'ne sait pas'),
-        ],
-        hints: [
-          'When ChatGPT writes an answer, where does each word come from: from a lookup in your PDF, or from something else?',
-          'Invariant: plausible ≠ verified. A product that makes answers trustworthy must (a) let the reader check every claim and (b) have a safe behaviour when there is nothing to check against.',
-          'Similar case: a student who has not revised writes a confident essay. The teacher can only trust it if every claim has a page reference, and the student is allowed to write "not in the course" instead of inventing. Map these two rules onto SANAD.',
-        ],
-        misconceptions: [
-          'Thinking the risk is only "the PDF is too long for the model" (context size), rather than the model inventing.',
-          'Naming "local" or "privacy" as the fix for hallucination: those protect data, not truth.',
-        ],
-        source: 'Slides 1 and 3; report p.16 and p.30–31; prompts/answer-writer/PROMPT.md',
-        juryVersionFr:
-          'Un modèle de langage prédit un texte plausible, il ne vérifie rien. Il peut donc inventer une durée ou un article avec assurance, et le lecteur ne peut pas contrôler. Sanad ajoute deux comportements : chaque réponse montre sa source, et quand la réponse n’est pas dans les documents, il refuse au lieu de deviner.',
-      },
+      { id: "g01-1", prompt: "A colleague says: \"Just paste the Code du travail PDF into ChatGPT, it will answer HR questions fine.\" Using what you know about how an LLM produces text, explain the precise risk, and name the two behaviours SANAD adds to remove it.", source: "Slides 1 and 3; report p.16 and p.30–31; prompts/answer-writer/PROMPT.md" },
     ],
   },
   {
@@ -292,47 +274,8 @@ Where SANAD stands vs other tools (slide 5):
     sayItFr:
       'Le RAG, c’est un examen à livre ouvert : on cherche d’abord les passages utiles dans les documents, puis le modèle rédige seulement à partir de ces passages. Tourner en local n’est pas propre à Sanad. Ce qui le distingue, c’est la combinaison : un mode entièrement local possible, un refus mesuré et publié, et une porte qui bloque toute version sous le seuil.',
     gates: [
-      {
-        id: 'g02-1',
-        prompt:
-          'Sort these six steps into "done once per document" or "done at every question", and say in one line why the split matters for speed:\n(a) convert the PDF to text (b) compute passage vectors (c) compute the question vector (d) store vectors in Qdrant (e) ask the LLM whether passages answer the question (f) write the answer.',
-        modelAnswer:
-          'Once per document (indexing, during Sync): (a) convert to text, (b) passage vectors, (d) store in Qdrant. At every question: (c) question vector, (e) grading by the LLM, (f) writing the answer. Why it matters: the expensive work on documents (conversion, embedding every chunk, about 0.29 s per chunk on a laptop CPU) is paid once at Sync, so a question only needs one small embedding, a search and a few LLM calls (median 8.3 s). And a second Sync of unchanged files is skipped (0.09 s).',
-        keyPoints: [
-          kp('a, b, d are once per document', 'once', 'une fois', 'sync', 'index'),
-          kp('c, e, f are per question', 'every question', 'chaque question', 'per question', 'à chaque'),
-          kp('Heavy document work is paid once, so questions are fast', 'fast', 'rapide', 'cost', 'coût', 'once', 'speed', 'vitesse', 'expensive', 'cher'),
-        ],
-        hints: [
-          'Which of these steps needs the question to exist before it can run?',
-          'Rule: anything that depends only on the documents can be computed in advance and stored; anything that depends on the question must wait for it.',
-          'Similar case: a library catalogues each new book once (title card, shelf number). When a reader arrives, the librarian only looks up the reader’s request. Which of your six steps are "cataloguing"?',
-        ],
-        misconceptions: ['Putting "compute the question vector" in the indexing phase: the question does not exist yet.'],
-        source: 'Slides 5 and 9; report p.32 and Table 6.4',
-      },
-      {
-        id: 'g02-2',
-        prompt:
-          'A jury member says: "NotebookLM and AnythingLLM already do this. What exactly is your contribution?" Answer in 4–5 sentences, and include one thing the competitors do better.',
-        modelAnswer:
-          'Honestly, running locally is not unique: AnythingLLM and PrivateGPT also run on your machine, and NotebookLM reads illustrated documents better and accepts more sources. Our contribution is the combination: SANAD can run entirely locally (Ollama) so documents need not leave the organisation, its refusal is measured and published (20 out-of-corpus questions refused 20/20 at every version), and a release gate blocks any version whose scores fall below fixed thresholds. It also offers French and Arabic (right-to-left) interfaces, and a figure description is never used as evidence. The 20/20 is on our own frozen question set, so it is evidence about SANAD, not a head-to-head comparison.',
-        keyPoints: [
-          kp('Admits local is not unique / competitor strength', 'not unique', 'pas unique', 'notebooklm', 'better', 'mieux', 'anythingllm', 'privategpt'),
-          kp('Measured and published refusal (20/20)', '20/20', '20 sur 20', 'refus', 'refusal'),
-          kp('Release gate per version', 'gate', 'porte', 'release', 'version', 'seuil', 'threshold'),
-          kp('Can run fully locally', 'local', 'ollama'),
-        ],
-        hints: [
-          'If the jury opened AnythingLLM tomorrow, what could it NOT show them that you can show on slide 15?',
-          'Invariant for a contribution claim: it must be something you can prove with a kept number, and you must not claim what others also do.',
-          'Similar case: a new car brand can’t claim "has four wheels" as its contribution. It claims "crash-tested and published every year". What is SANAD’s published test?',
-        ],
-        misconceptions: ['Claiming "only SANAD runs locally" — the report’s own Table 2.1 says AnythingLLM and PrivateGPT do.'],
-        source: 'Slide 5; report Table 2.1 and p.37',
-        juryVersionFr:
-          'Être local n’est pas propre à Sanad, et NotebookLM lit mieux les documents illustrés. Notre apport, c’est la combinaison : un mode entièrement local, un refus mesuré et publié à chaque version, et une porte qui bloque une version sous le seuil. Le 20 sur 20 porte sur notre propre jeu de questions : c’est une preuve sur Sanad, pas un match contre les autres.',
-      },
+      { id: "g02-1", prompt: "Sort these six steps into \"done once per document\" or \"done at every question\", and say in one line why the split matters for speed:\n(a) convert the PDF to text (b) compute passage vectors (c) compute the question vector (d) store vectors in Qdrant (e) ask the LLM whether passages answer the question (f) write the answer.", source: "Slides 5 and 9; report p.32 and Table 6.4" },
+      { id: "g02-2", prompt: "A jury member says: \"NotebookLM and AnythingLLM already do this. What exactly is your contribution?\" Answer in 4–5 sentences, and include one thing the competitors do better.", source: "Slide 5; report Table 2.1 and p.37" },
     ],
   },
   {
@@ -409,43 +352,8 @@ A trap question about G3: it's almost automatically 100%. The code physically re
     sayItFr:
       'Nous n’avons pas promis « un bon assistant ». Nous avons écrit trois promesses chiffrées avant de coder : au moins 36 réponses fondées sur 40, 20 refus sur 20 questions hors documents, et 100 % des réponses avec leur source. Un script applique ces seuils avant chaque version : si un seuil n’est pas atteint, la version ne sort pas. La vitesse est mesurée, mais elle ne bloque pas.',
     gates: [
-      {
-        id: 'g03-1',
-        prompt:
-          'Two candidate versions:\n• Version A: 35/40 grounded, 20/20 refused, 35/35 sourced, median 7 s.\n• Version B: 39/40 grounded, 19/20 refused, 39/39 sourced, median 25 s.\nDoes each one ship? Show the rule you apply to each number.',
-        modelAnswer:
-          'Neither ships. A: G1 needs at least 90% of 40, that is 36; 35/40 = 87.5% is below, so the gate blocks it even though G2, G3 and speed are fine. B: G2 requires all 20 out-of-corpus questions refused; 19/20 means one answer was given where the documents have nothing, so it is blocked. B’s 25 s median misses G4 (20 s), but G4 is non-blocking; it would be reported, not blocking. G3 is fine for both.',
-        keyPoints: [
-          kp('A fails G1 (35 < 36 / below 90%)', '36', '90', '87'),
-          kp('B fails G2 (needs 20/20)', '19', '20/20', '20 sur 20', 'all 20', 'tous'),
-          kp('Speed does not block', 'not block', 'ne bloque', 'non-blocking', 'non bloquant', 'g4'),
-        ],
-        hints: [
-          'For version A, what is 90% of 40? For version B, how many refusals does G2 allow you to miss?',
-          'Invariant: a release ships only if G1 ≥ 90% of 40 AND G2 = 20/20 AND G3 = 100%. Speed (G4/G5) is reported but never blocks.',
-          'Similar case: a driving test fails you for one dangerous mistake no matter how well you parked. Which of SANAD’s goals behaves like "one dangerous mistake"?',
-        ],
-        misconceptions: ['Thinking B ships because 39/40 is a great G1 score.', 'Thinking the 25 s median blocks B.'],
-        source: 'Slide 4; report Table 1.3 p.21; evaluation/gate.py',
-      },
-      {
-        id: 'g03-2',
-        prompt:
-          'A jury member: "G3 at 100% is trivial, your code forces it. Why measure it at all?" Answer in 3–4 sentences.',
-        modelAnswer:
-          'Yes, G3 is guaranteed by construction: the Answer class raises an error if an answer has no sources, and the sources are built by code from the retrieved passages, not from the model’s text. We still measure it because a guarantee in code can be broken by a later change; measuring it at every release turns it into a regression check that the gate enforces. That is the lesson from the report: put the guarantee in the structure of the code, then prove it with a number. G3 says nothing about whether the answer is correct; that is G1.',
-        keyPoints: [
-          kp('Guaranteed by construction (Answer raises without sources)', 'construction', 'raise', 'exception', 'erreur', 'cannot be built', 'impossible'),
-          kp('Measured as a regression check', 'regression', 'régression', 'future change', 'changement', 'break', 'casse'),
-          kp('G3 is not correctness; G1 is', 'g1', 'grounded', 'fondé', 'correct'),
-        ],
-        hints: [
-          'What could happen to that guarantee six months from now, when someone edits agent/state.py?',
-          'Invariant: a guarantee you never test is a guarantee you only believe in. Tests and gates exist to catch the day it breaks.',
-          'Similar case: a car’s seatbelt warning is built in, yet every crash test still checks it works. Why?',
-        ],
-        source: 'agent/state.py (Answer.__post_init__); report Table 4.4 p.56 and p.81',
-      },
+      { id: "g03-1", prompt: "Two candidate versions:\n• Version A: 35/40 grounded, 20/20 refused, 35/35 sourced, median 7 s.\n• Version B: 39/40 grounded, 19/20 refused, 39/39 sourced, median 25 s.\nDoes each one ship? Show the rule you apply to each number.", source: "Slide 4; report Table 1.3 p.21; evaluation/gate.py" },
+      { id: "g03-2", prompt: "A jury member: \"G3 at 100% is trivial, your code forces it. Why measure it at all?\" Answer in 3–4 sentences.", source: "agent/state.py (Answer.__post_init__); report Table 4.4 p.56 and p.81" },
     ],
   },
   {
@@ -538,44 +446,8 @@ Honesty point: every number in the thesis was measured in cloud mode (with Gemin
     sayItFr:
       'Sanad est une seule application Python, avec des stockages locaux : la base SQLite, l’index Qdrant intégré avec une collection par espace, les sections et les images. Le seul appel qui peut sortir, c’est le modèle de langage : Gemini en mode cloud, ou Ollama en local, et là rien ne sort. Nos mesures ont été faites en mode cloud ; le mode local n’a pas encore été mesuré.',
     gates: [
-      {
-        id: 'g04-1',
-        prompt:
-          'In CLOUD mode, a user asks one question. List exactly what leaves the machine, and name three things that never leave. Then say what changes in LOCAL mode.',
-        modelAnswer:
-          'Cloud mode, during a question: the question (and the conversation summary used to understand it) and the retrieved passages/sections are sent to Gemini, because the LLM summarises, plans the searches, grades the passages, possibly rewords, and writes the answer. Never leaves: the document files themselves, the vectors/index (E5 and BM25 run on the local CPU and Qdrant is embedded), the SQLite database (accounts, history, evaluations), and the stored parent sections as a whole. During Sync, figure images can be sent to the model if figure descriptions are enabled. Local mode (Ollama): the LLM runs on the machine, so nothing leaves at all.',
-        keyPoints: [
-          kp('Question goes to the LLM', 'question'),
-          kp('Retrieved passages go to the LLM', 'passage', 'section', 'extrait'),
-          kp('Files / index / vectors / database stay local', 'file', 'fichier', 'index', 'vector', 'vecteur', 'sqlite', 'database', 'base'),
-          kp('Local mode: nothing leaves', 'nothing', 'rien', 'ollama'),
-        ],
-        hints: [
-          'Which component in the diagram is the only one drawn outside the machine, and what does it need to receive to write an answer?',
-          'Invariant: embeddings are computed locally; only LLM calls leave, and they carry whatever text the LLM must read.',
-          'Similar case: you ask an outside translator to translate one paragraph of a contract. What do they see, and what stays in your filing cabinet?',
-        ],
-        misconceptions: ['Saying the vectors or embeddings are computed by Gemini: E5 and BM25 run locally.', 'Saying "nothing leaves" without distinguishing the two modes.'],
-        source: 'Slide 8; report Table 3.7 p.43 and Table 4.7 p.60; config.py',
-      },
-      {
-        id: 'g04-2',
-        prompt:
-          'Why embedded Qdrant + SQLite instead of a Qdrant server + PostgreSQL? Give two benefits and the cost you accepted, as you would to the jury.',
-        modelAnswer:
-          'Benefits: nothing extra to install or administer, since Qdrant runs as a library inside the Python process and SQLite is a file, so one person can start SANAD with one command and all data stays in one local folder; and one collection per workspace gives structural isolation between workspaces. For a two-person team on a short timeline, zero administration mattered most. Accepted cost: only one process can open the embedded index at a time and SQLite does not handle concurrent writes well, so it does not scale to many simultaneous users. To scale, we would move to a Qdrant server and PostgreSQL.',
-        keyPoints: [
-          kp('No server to install / one command / zero admin', 'server', 'serveur', 'install', 'one command', 'une commande', 'admin', 'simple'),
-          kp('Isolation: one collection per workspace, or data local', 'collection', 'isolation', 'local', 'workspace', 'espace'),
-          kp('Cost: one process / no concurrent writes / scaling', 'one process', 'un seul processus', 'concurr', 'scale', 'charge', 'multi'),
-        ],
-        hints: [
-          'What would a new user have to install and run before using SANAD if the index were a separate server?',
-          'Rule of thumb: an embedded database trades scalability for simplicity. Name the simplicity, then the scalability you lose.',
-          'Similar case: a notebook in your bag vs. a shared online spreadsheet. The notebook needs no setup, but what can’t two people do with it at once?',
-        ],
-        source: 'Slide 8; report Table 4.9 p.61',
-      },
+      { id: "g04-1", prompt: "In CLOUD mode, a user asks one question. List exactly what leaves the machine, and name three things that never leave. Then say what changes in LOCAL mode.", source: "Slide 8; report Table 3.7 p.43 and Table 4.7 p.60; config.py" },
+      { id: "g04-2", prompt: "Why embedded Qdrant + SQLite instead of a Qdrant server + PostgreSQL? Give two benefits and the cost you accepted, as you would to the jury.", source: "Slide 8; report Table 4.9 p.61" },
     ],
   },
 
@@ -660,44 +532,8 @@ Step 5: one line per file in the report. If one file fails (for example a damage
     sayItFr:
       'Quand on synchronise, Sanad calcule une empreinte SHA-256 de chaque fichier. Si elle n’a pas changé, il ne refait rien : 0,09 seconde pour un dossier inchangé. Un fichier modifié voit d’abord ses anciennes données supprimées, pour ne jamais citer un texte périmé. Et l’ordre d’écriture est pensé pour les pannes : les sections d’abord, les vecteurs ensuite. Une panne laisse au pire un fichier orphelin, jamais une citation vers le vide.',
     gates: [
-      {
-        id: 'g05-1',
-        prompt:
-          'Yesterday you synced a folder. Today: A.pdf is untouched, B.docx was edited, C.pdf is new, and D.txt was deleted from the folder. Say what Sync does with each file, and explain why B’s old data must be deleted BEFORE B is re-indexed.',
-        modelAnswer:
-          'A.pdf: same SHA-256 fingerprint → unchanged → skipped (report row "unchanged"). B.docx: different fingerprint → changed → delete its old data (vectors first, then parent sections), then convert, chunk, write parents, write vectors (row "changed"). C.pdf: no previous fingerprint → new → convert, chunk, write parents then vectors (row "added"). D.txt: known before but missing now → removed → its vectors and parents are deleted (row "removed"). B must be cleaned first because otherwise passages from the old version could stay in the index and be retrieved and cited as if they were current: stale text served as a source.',
-        keyPoints: [
-          kp('Unchanged skipped via fingerprint/hash', 'skip', 'ignor', 'unchanged', 'inchang', 'hash', 'sha', 'empreinte'),
-          kp('Changed: delete old then re-index', 'delete', 'supprim', 'changed', 'modifi'),
-          kp('New indexed, removed deleted', 'new', 'nouveau', 'added', 'ajout', 'removed', 'retir', 'supprim'),
-          kp('Reason: stale/old text would be cited', 'stale', 'old', 'ancien', 'périmé', 'perime', 'obsolete', 'outdated'),
-        ],
-        hints: [
-          'How does Sync know A.pdf didn’t change without reading its text again? And what would the index contain for B if you only ADDED the new version?',
-          'Invariant: the index must never contain text that is no longer in the documents, because anything in the index can be cited.',
-          'Similar case: you update a price list in a shop. If you put the new labels up without removing the old ones, what can a customer end up reading?',
-        ],
-        misconceptions: ['Thinking Sync compares modification dates or file names.', 'Thinking the new version simply overwrites the old passages automatically.'],
-        source: 'change_detection.py (ChangeStatus); sync.py docstring rules 1–3; report p.51–52',
-      },
-      {
-        id: 'g05-2',
-        prompt:
-          'The server loses power in the middle of indexing a document. Explain why writing parent sections FIRST and vectors LAST means a user can never receive a citation that points to nothing. What does the worst case look like instead?',
-        modelAnswer:
-          'Search only finds things through vectors, and each vector points to a parent section. If parents are written first and the crash happens before the vectors, the parents exist but no vector points to them: they are orphan files, invisible to search, and overwritten by the next Sync. Harmless. If the order were reversed (vectors first), a crash could leave vectors pointing to parent sections that were never written; a question could then retrieve them and cite a section that does not exist. Deletion uses the mirror order (vectors first, then parents) for the same reason. And as a last floor, if a retrieved passage’s section cannot be read at answer time, the graph refuses with a "run a Sync" message instead of answering.',
-        keyPoints: [
-          kp('Search goes through vectors, vectors point to parents', 'vector', 'vecteur', 'point', 'pointe'),
-          kp('Crash before vectors leaves orphan parents invisible to search', 'orphan', 'orphelin', 'invisible', 'nothing points', 'rien ne pointe'),
-          kp('Reverse order would create broken/dangling citations', 'broken', 'dangling', 'cass', 'vide', 'does not exist', "n'existe pas", 'missing'),
-        ],
-        hints: [
-          'At question time, which store does SANAD search first: the vectors or the parent files? What does a vector carry that leads to a parent?',
-          'Invariant: a user can only be shown what search can reach, and search reaches parents only through vectors.',
-          'Similar case: a library adds a book to its shelves before adding the catalogue card. If the power cuts in between, what is the worst a reader experiences? And in the other order?',
-        ],
-        source: 'sync.py module docstring ("PARENTS FIRST, THEN VECTORS"); agent/nodes.py REFUSAL_TEXT_UNREADABLE; report p.57–58',
-      },
+      { id: "g05-1", prompt: "Yesterday you synced a folder. Today: A.pdf is untouched, B.docx was edited, C.pdf is new, and D.txt was deleted from the folder. Say what Sync does with each file, and explain why B’s old data must be deleted BEFORE B is re-indexed.", source: "change_detection.py (ChangeStatus); sync.py docstring rules 1–3; report p.51–52" },
+      { id: "g05-2", prompt: "The server loses power in the middle of indexing a document. Explain why writing parent sections FIRST and vectors LAST means a user can never receive a citation that points to nothing. What does the worst case look like instead?", source: "sync.py module docstring (\"PARENTS FIRST, THEN VECTORS\"); agent/nodes.py REFUSAL_TEXT_UNREADABLE; report p.57–58" },
     ],
   },
   {
@@ -773,42 +609,8 @@ Honest note: 500/100 was not tuned by experiment. Question 33 (lesson 10) shows 
     sayItFr:
       'Nous cherchons dans de petits passages de 500 caractères, parce qu’un petit passage porte une seule idée et se compare bien à la question. Mais le modèle lit ensuite la section complète d’où vient le passage, entre 2 000 et 4 000 caractères, pour ne jamais répondre sur une phrase coupée. Chercher petit, lire grand.',
     gates: [
-      {
-        id: 'g06-1',
-        prompt:
-          'Two alternative designs are proposed: (1) embed and search whole 3,000-character sections directly; (2) search 500-character children and give the writer ONLY those children. Explain what goes wrong with each, and why SANAD’s design avoids both problems.',
-        modelAnswer:
-          'Design 1: one vector per 3,000-character section averages several ideas into one blurry point, so a precise question matches less well and the right section can be missed; retrieval precision drops. Design 2: search is precise, but a 500-character child can be cut mid-sentence or stop before the decisive detail (exactly what happens to the grader in question 33), and it lacks the context to cite the article correctly, so the writer answers badly or refuses. SANAD does both: it searches the 500-character children (sharp vectors), then loads the whole parent section of each hit, once per parent, and the writer answers from those full sections. Search small, read big.',
-        keyPoints: [
-          kp('Big chunks: diluted/blurry vector, worse retrieval', 'dilut', 'blur', 'flou', 'average', 'moyenne', 'several ideas', 'plusieurs idées', 'precision', 'précision'),
-          kp('Small chunks alone: cut context, missing detail', 'cut', 'coup', 'context', 'contexte', 'missing', 'manque', 'incomplete'),
-          kp('SANAD: search children, read full parent section', 'parent', 'section', 'search small', 'chercher petit', 'read big', 'lire grand'),
-        ],
-        hints: [
-          'A vector is ONE point representing a whole text. What happens to that point when the text talks about five different things?',
-          'Invariant: search wants one idea per unit; answering wants the full context. One size cannot satisfy both.',
-          'Similar case: to find a recipe you scan the index of a cookbook (short entries), but to cook you read the whole page. What would go wrong if the index entries were whole pages, or if you cooked from the index entry alone?',
-        ],
-        misconceptions: ['Saying Qdrant cannot store long texts: storage size is not the reason, meaning dilution is.'],
-        source: 'Slide 9; chunking.py; config.py; report p.52',
-      },
-      {
-        id: 'g06-2',
-        prompt:
-          'What is the 100-character overlap between children for? Invent a concrete example of what could break if the overlap were 0.',
-        modelAnswer:
-          'Consecutive children share 100 characters so that a sentence falling on a boundary appears whole in at least one child. Example with overlap 0: the text "La période d’essai des cadres est de trois mois, | renouvelable une seule fois" is cut at "|". Child 1 ends with "est de trois mois," and child 2 starts with "renouvelable une seule fois". A question about renewal could match child 2, which no longer says what is being renewed, and neither child holds the full rule, so matching gets weaker. With overlap, the boundary sentence is kept whole in one child. (The writer still reads the whole parent, so overlap mainly protects search and grading.)',
-        keyPoints: [
-          kp('Overlap keeps boundary sentences whole', 'boundary', 'frontière', 'limite', 'whole', 'entier', 'complète', 'cut', 'coup'),
-          kp('Concrete example of a sentence split across two children', 'sentence', 'phrase', 'example', 'exemple'),
-        ],
-        hints: [
-          'Imagine cutting a text every 500 characters with scissors, blind. Where can the scissors land?',
-          'Invariant: a passage can only match a question if the idea it needs is written inside that passage.',
-          'Similar case: photographing a long wall in several shots, you let the photos overlap so no window is cut in two in every photo. Apply that to sentences.',
-        ],
-        source: 'config.py chunk_child_overlap_chars = 100; chunking.py',
-      },
+      { id: "g06-1", prompt: "Two alternative designs are proposed: (1) embed and search whole 3,000-character sections directly; (2) search 500-character children and give the writer ONLY those children. Explain what goes wrong with each, and why SANAD’s design avoids both problems.", source: "Slide 9; chunking.py; config.py; report p.52" },
+      { id: "g06-2", prompt: "What is the 100-character overlap between children for? Invent a concrete example of what could break if the overlap were 0.", source: "config.py chunk_child_overlap_chars = 100; chunking.py" },
     ],
   },
   {
@@ -881,43 +683,8 @@ Planning first. Before searching, SANAD can split one question into 1 to 5 separ
     sayItFr:
       'Chaque passage est rangé deux fois : par le sens, avec les vecteurs E5, et par les mots exacts, avec BM25. Le sens retrouve « licenciement » quand on écrit « renvoi » ; les mots exacts retrouvent « article 14 ». Les deux listes sont fusionnées par rang, avec la méthode RRF, parce que leurs scores ne sont pas sur la même échelle. On garde les cinq meilleurs passages.',
     gates: [
-      {
-        id: 'g07-1',
-        prompt:
-          'Two users: one asks "Que dit l’article 14 ?", the other "Mon patron peut-il me renvoyer sans motif ?" (the Code uses "licenciement", never "renvoyer"). Which half of the hybrid search rescues each question, and why does SANAD fuse the two lists by rank rather than by adding their scores?',
-        modelAnswer:
-          '"Article 14" is an exact identifier: BM25 keyword search finds passages containing "Article 14", while a meaning vector could return other articles about similar topics. "Renvoyer sans motif" shares no words with "licenciement", so keyword search misses it; the E5 dense vectors place both near each other by meaning, so dense search rescues it. The scores can’t be added because they are on different scales (a cosine similarity versus an unbounded BM25 score), so a sum would be dominated by whichever scale is larger. RRF uses only each passage’s rank position in each list (a sum of 1/(k + rank)), so both lists count fairly and a passage ranked well by both rises to the top.',
-        keyPoints: [
-          kp('Article 14 → keyword/BM25', 'bm25', 'keyword', 'mot', 'exact', 'lexical', 'sparse'),
-          kp('Renvoyer vs licenciement → dense/meaning/E5', 'dense', 'meaning', 'sens', 'e5', 'vector', 'vecteur', 'sémantique', 'semantic'),
-          kp('Scores on different scales, RRF uses ranks', 'scale', 'échelle', 'echelle', 'rank', 'rang'),
-        ],
-        hints: [
-          'Does the second question share any word with the article that answers it? What kind of search can match without shared words?',
-          'Invariant: you can only add two numbers meaningfully if they are on the same scale. What does RRF keep from each list instead of the score?',
-          'Similar case: merging two school rankings where one grades out of 20 and the other out of 100. Adding raw marks is unfair; comparing positions (1st, 2nd…) is not. Apply that here.',
-        ],
-        misconceptions: ['Saying E5 finds "article 14" better because it is "smarter".', 'Saying RRF averages the similarity scores.'],
-        source: 'Slide 9; embeddings.py; vector_store.py search_with_vectors; report p.33, p.56',
-      },
-      {
-        id: 'g07-2',
-        prompt:
-          'A new team member "cleans up" the code and removes the "query: " prefix before embedding questions. All the tests that check for crashes still pass. What actually happens, and how does SANAD catch it?',
-        modelAnswer:
-          'Nothing crashes: E5 still returns 768 numbers. But E5 was trained with the prefixes ("query: " for questions, "passage: " for documents), so a question without its prefix lands in a slightly wrong region of the vector space. Dense retrieval silently gets worse: the right passages rank lower and more questions end in refusals or weaker answers. A silent quality drop is the most dangerous kind of bug, so SANAD has a test that fails if any text is embedded without its prefix. The evaluation’s G1 score would also drop at the next release gate.',
-        keyPoints: [
-          kp('No crash, silent quality drop', 'silent', 'silenc', 'no crash', 'pas de crash', 'no error', "pas d'erreur", 'worse', 'pire', 'dégrad', 'degrad'),
-          kp('E5 was trained with query/passage prefixes', 'trained', 'entraîn', 'entrain', 'prefix', 'préfixe'),
-          kp('A test enforces the prefix (or the gate catches it)', 'test', 'gate', 'porte'),
-        ],
-        hints: [
-          'Would Python raise an error? What does the model still return, and is that output still "right"?',
-          'Invariant: E5 compares "query: …" vectors against "passage: …" vectors because that is how it was trained. Break the pairing and the geometry is off.',
-          'Similar case: a translator trained to always receive "FR→EN:" before the text. Remove the tag and they still produce something, just less reliably. How would you detect that automatically?',
-        ],
-        source: 'config.py embedding_query_prefix / embedding_passage_prefix; embeddings.py; docs/defense/jury-questions.md Q9',
-      },
+      { id: "g07-1", prompt: "Two users: one asks \"Que dit l’article 14 ?\", the other \"Mon patron peut-il me renvoyer sans motif ?\" (the Code uses \"licenciement\", never \"renvoyer\"). Which half of the hybrid search rescues each question, and why does SANAD fuse the two lists by rank rather than by adding their scores?", source: "Slide 9; embeddings.py; vector_store.py search_with_vectors; report p.33, p.56" },
+      { id: "g07-2", prompt: "A new team member \"cleans up\" the code and removes the \"query: \" prefix before embedding questions. All the tests that check for crashes still pass. What actually happens, and how does SANAD catch it?", source: "config.py embedding_query_prefix / embedding_passage_prefix; embeddings.py; docs/defense/jury-questions.md Q9" },
     ],
   },
   {
@@ -988,24 +755,7 @@ Honest note: figures came in the last, unnumbered version. There is no exam for 
     sayItFr:
       'Dans un PDF, une image n’a pas de mots : la recherche ne la voit pas. Nous extrayons donc la figure entière, nous écartons les logos et les pages scannées, et nous gardons sa légende et sa page. Le modèle en écrit une description qui aide à la retrouver, mais cette description n’est jamais donnée au rédacteur : une affirmation ne s’appuie que sur le texte du document.',
     gates: [
-      {
-        id: 'g08-1',
-        prompt:
-          'A technician asks for the voltage of a component that appears ONLY in a wiring diagram, not in the text. SANAD shows the diagram but refuses to state the voltage. A jury member calls this a bug. Defend it as a design decision, including the cost you accepted.',
-        modelAnswer:
-          'It is deliberate. The figure’s description is written by a model that interprets the image; it can misread a plan. If that description were used as evidence, SANAD could state a wrong voltage with a source attached, which is indistinguishable from a correct sourced answer and exactly the failure the product exists to prevent. So the description only helps search find and display the figure; the grader and writer read document text only. The accepted cost: a detail that exists only in an image gets a refusal. The figure is still displayed with its caption and page, so the technician can read the value themselves. Figure answers are also not yet measured (no frozen figure set), another reason not to let them carry claims.',
-        keyPoints: [
-          kp('Description is a model interpretation that can be wrong', 'misread', 'mal lu', 'interpret', 'wrong', 'faux', 'erreur', 'error'),
-          kp('Never used as evidence / only text is evidence', 'evidence', 'preuve', 'never', 'jamais', 'text only', 'texte'),
-          kp('Cost: image-only details are refused, figure still shown', 'refus', 'cost', 'coût', 'shown', 'montr', 'affich', 'displayed'),
-        ],
-        hints: [
-          'Who produced the text that says what the diagram contains? Could that text be wrong, and would the user be able to tell?',
-          'Invariant: a claim may only rest on the document’s own text, the same text the judge checks.',
-          'Similar case: a witness describes a photo to a court. The court shows the photo itself as the exhibit, and the description is not treated as evidence. Why?',
-        ],
-        source: 'Slide 11; report Table 4.4 p.56, Table 4.9 p.61; figures.py',
-      },
+      { id: "g08-1", prompt: "A technician asks for the voltage of a component that appears ONLY in a wiring diagram, not in the text. SANAD shows the diagram but refuses to state the voltage. A jury member calls this a bug. Defend it as a design decision, including the cost you accepted.", source: "Slide 11; report Table 4.4 p.56, Table 4.9 p.61; figures.py" },
     ],
   },
 
@@ -1095,42 +845,8 @@ Important for the jury: the AI never chooses which step comes next. Small Python
     sayItFr:
       'L’agent n’est pas un chatbot libre : c’est un graphe fixe de neuf étapes. Il résume la conversation, planifie une à cinq recherches ou pose une seule question de clarification, cherche, puis fait vérifier les passages. S’ils ne répondent pas, il reformule, deux fois au plus. Sinon il charge les sections complètes et rédige en citant, ou il refuse. Trois fins possibles : une réponse, une clarification, ou un refus.',
     gates: [
-      {
-        id: 'g09-1',
-        prompt:
-          'List the nodes visited, in order, for each case:\n(a) a clear question whose passages are relevant at the first search;\n(b) a vague first question ("et pour les congés ?" with no context);\n(c) a question on a topic absent from the documents, where every search comes back off-topic (default settings).',
-        modelAnswer:
-          '(a) summarize → rewrite → retrieve → grade (relevant) → fetch_parents → answer → END (kind: answer). (b) summarize → rewrite (judged ambiguous) → clarify → END (kind: clarification, one question asked; it cannot happen twice for the same question). (c) summarize → rewrite → retrieve → grade (off-topic) → reword → retrieve → grade (off-topic) → reword → retrieve → grade (off-topic, ceiling of 2 rewords reached) → refuse → END (kind: refusal, listing the searches tried).',
-        keyPoints: [
-          kp('(a) ends with fetch_parents → answer', 'fetch_parents', 'fetch', 'parents', 'answer'),
-          kp('(b) goes to clarify and stops', 'clarif'),
-          kp('(c) two rewords then refuse', 'reword', 'reformul', 'refus', 'two', 'deux', '2'),
-        ],
-        hints: [
-          'Start every path at summarize. Which node decides between clarify and retrieve, and which node decides between answering, rewording and refusing?',
-          'Invariant: route_after_grade sends RELEVANT → fetch_parents; OFF_TOPIC with rewords < 2 → reword; otherwise → refuse. route_after_rewrite sends vague → clarify.',
-          'Similar case: a help-desk script says "If unclear, ask one question. Otherwise look it up; if the files don’t match, rephrase at most twice; then either answer from the file or say we don’t have it." Write the steps for a caller whose topic isn’t in the files.',
-        ],
-        misconceptions: ['Putting "answer" before "fetch_parents".', 'Letting case (c) loop more than twice, or refusing after the first miss.'],
-        source: 'agent/graph.py build_graph; agent/nodes.py route_after_* ; slide 10',
-      },
-      {
-        id: 'g09-2',
-        prompt: 'A jury member: "Why use LangGraph? A while-loop in Python would do the same." Give the reason and the cost.',
-        modelAnswer:
-          'A while-loop could do it, but our flow has a loop (reword then search again) and several branches (clarify or search; answer, reword or refuse). LangGraph makes each step a named node and each branch an explicit edge, so the retry ceiling and the refusal path are visible and testable one by one, and every step lands in the trace the user can inspect. That was the decision recorded as ADR-03. The cost is one more framework to learn and pin, and some ceremony. We checked its recursion limit on the pinned version so a higher retry ceiling can’t crash it.',
-        keyPoints: [
-          kp('Loop and branches made explicit', 'loop', 'boucle', 'branch', 'branche', 'explicit', 'explicite', 'visible'),
-          kp('Testable / retry ceiling / trace', 'test', 'trace', 'ceiling', 'plafond', 'limite'),
-          kp('Cost: extra framework/dependency', 'framework', 'dependency', 'dépendance', 'cost', 'coût', 'learn', 'apprendre'),
-        ],
-        hints: [
-          'In a plain loop, where would a reader find the rule "at most two rewords"? In the graph, where is it?',
-          'Invariant: design choices are defended by what they make checkable. What can you test node by node that is buried in a loop?',
-          'Similar case: a recipe written as one long paragraph vs. numbered steps with "if the dough is sticky, go back to step 3 (max twice)". Which is easier to audit?',
-        ],
-        source: 'agent/graph.py docstring (ADR-03); report Table 4.9 p.61',
-      },
+      { id: "g09-1", prompt: "List the nodes visited, in order, for each case:\n(a) a clear question whose passages are relevant at the first search;\n(b) a vague first question (\"et pour les congés ?\" with no context);\n(c) a question on a topic absent from the documents, where every search comes back off-topic (default settings).", source: "agent/graph.py build_graph; agent/nodes.py route_after_* ; slide 10" },
+      { id: "g09-2", prompt: "A jury member: \"Why use LangGraph? A while-loop in Python would do the same.\" Give the reason and the cost.", source: "agent/graph.py docstring (ADR-03); report Table 4.9 p.61" },
     ],
   },
   {
@@ -1201,47 +917,8 @@ Question 33 (g-in-033), the only remaining failure. The answer (a delay of one m
     sayItFr:
       'L’agent a le droit de dire non. Un vérificateur juge si les passages trouvés répondent vraiment : un passage qui parle du même sujet ne suffit pas. Sinon Sanad reformule, deux fois au plus, puis refuse, et il affiche les recherches faites. Ce refus n’est pas négocié par un modèle : c’est le graphe qui le décide.',
     gates: [
-      {
-        id: 'g10-1',
-        prompt:
-          'With the default configuration, a question is off-topic every time. (1) How many search rounds, grading decisions and rewords happen before the refusal? (2) An operator sets RETRY_CEILING=3. What changes, and why can it take effect without restarting the graph code?',
-        modelAnswer:
-          '(1) Default retry_ceiling = 2: 3 search rounds (the first plus 2 rewords), 3 grading decisions, 2 rewords, then refuse. (2) With 3: 4 search rounds, 4 grades, 3 rewords, then refuse. It takes effect because route_after_grade reads get_settings().retry_ceiling at every decision and compares it with the number of rewords counted in the trace; nothing is hard-coded or captured when the graph is built. (Each round may run up to 5 queries, so the number of individual searches can be higher.)',
-        keyPoints: [
-          kp('Default: 3 rounds / 3 grades / 2 rewords', '3', 'three', 'trois'),
-          kp('Ceiling 3: 4 rounds / 3 rewords', '4', 'four', 'quatre'),
-          kp('Ceiling read from config at each decision', 'config', 'settings', 'each decision', 'chaque décision', 'runtime', 'not hard', 'pas en dur'),
-        ],
-        hints: [
-          'Is the first search a "reword"? Count the first round separately from the retries.',
-          'Invariant: route_after_grade sends to reword while rewords < retry_ceiling; each reword is followed by one more retrieve and one more grade.',
-          'Similar case: "you may retake the exam at most 2 times". How many times can a student sit the exam in total? And with 3 retakes?',
-        ],
-        misconceptions: ['Counting only 2 search rounds (forgetting the first).', 'Thinking the ceiling is fixed in graph.py.'],
-        source: 'agent/nodes.py route_after_grade; config.py retry_ceiling = 2',
-      },
-      {
-        id: 'g10-2',
-        prompt:
-          'Explain question 33 to the jury in under a minute: what the answer is and where it lives, exactly which step fails and why, why it is a "safe" failure, what the fix is, and why you did not ship the fix before the defense.',
-        modelAnswer:
-          'Question 33 (g-in-033) asks about a delay whose answer, one month, is in Article 66, and the search actually finds Article 66 at rank 1. The failure is in the grading step. The grader reads the 500-character child passages, and the relevant passage stops just before the one-month delay, so the grader judges it off-topic. It says so in all three rounds (rewording even drifted to French-France vocabulary), and SANAD refuses. It is a safe failure: SANAD declined, it did not invent. The fix is to let the grader read the whole parent section, as the writer already does. We did not ship it before the defense because it changes grading for every question and could break the 20/20 refusals; it must be re-evaluated through the gate first. It is planned at one month, with success defined as 40/40 while keeping 20/20.',
-        keyPoints: [
-          kp('Answer is in Article 66 (one month)', '66', 'un mois', 'one month'),
-          kp('Grader reads 500-char child that stops before the answer', 'grader', 'vérif', 'verif', '500', 'child', 'extrait', 'passage'),
-          kp('Safe: refusal, not invention', 'safe', 'prudent', 'not invent', "n'invente", 'refus'),
-          kp('Fix: grader reads full section; risk to 20/20 so re-evaluate first', 'full section', 'section entière', 'section complète', 'whole', '20/20', '20 sur 20'),
-        ],
-        hints: [
-          'Did the search find the right article? If yes, which later step in the graph could still reject it, and what text does that step read?',
-          'Invariant: the grader and the writer do not read the same amount of text. The writer reads full sections, and the grader reads the retrieved 500-character passages.',
-          'Similar case: a receptionist glances at the first line of a letter and decides it is not for the manager, although the key sentence is on line six. What would you change, and what new risk does it create?',
-        ],
-        misconceptions: ['Saying the search failed to find Article 66.', 'Calling it a hallucination: it is a refusal.'],
-        source: 'Slides 17 and 21; docs/evals/v1.0.1-g1-triage.md; report p.77 and Table C.1 p.81',
-        juryVersionFr:
-          'La réponse est un délai d’un mois, à l’article 66, et la recherche le trouve en premier. Mais l’étape qui vérifie lit un extrait de 500 caractères qui s’arrête juste avant ce délai : elle le juge hors sujet trois fois, et Sanad refuse. C’est un refus prudent, pas une invention. Le remède est de faire lire la section entière au vérificateur, puis de vérifier que les 20 refus sur 20 tiennent toujours.',
-      },
+      { id: "g10-1", prompt: "With the default configuration, a question is off-topic every time. (1) How many search rounds, grading decisions and rewords happen before the refusal? (2) An operator sets RETRY_CEILING=3. What changes, and why can it take effect without restarting the graph code?", source: "agent/nodes.py route_after_grade; config.py retry_ceiling = 2" },
+      { id: "g10-2", prompt: "Explain question 33 to the jury in under a minute: what the answer is and where it lives, exactly which step fails and why, why it is a \"safe\" failure, what the fix is, and why you did not ship the fix before the defense.", source: "Slides 17 and 21; docs/evals/v1.0.1-g1-triage.md; report p.77 and Table C.1 p.81" },
     ],
   },
   {
@@ -1333,42 +1010,8 @@ Real bug that shaped this: an older version showed 5 source cards when only 4 se
     sayItFr:
       'Le rédacteur ne reçoit que les sections complètes, et il a une consigne stricte : répondre seulement à partir d’elles, ou écrire NOT_COVERED. La liste des sources n’est pas écrite par le modèle : c’est le code qui la construit à partir des passages réellement lus. Et l’objet réponse ne peut pas être créé sans source : le code lève une erreur. Une réponse sans source ne peut donc pas arriver à l’écran.',
     gates: [
-      {
-        id: 'g11-1',
-        prompt:
-          'The model misbehaves and writes: "Selon l’article 99 [3], la période d’essai est de six mois", although Article 99 was never retrieved. Can "Article 99" appear in the SOURCE LIST shown to the user? Walk through why. And what, if anything, would catch the wrong sentence itself?',
-        modelAnswer:
-          'No. The source list is not parsed from the model’s text. make_answer builds the sources with _sources_for(cited), where cited is the set of retrieved passages whose parent sections were actually loaded, the same set the writer was shown. Article 99 was never retrieved, so it cannot become a source card, and the "[3]" points to nothing (the prompt forbids such references). The sentence itself, though, is still in the answer text. What catches it is the evaluation: the judge checks every claim of the answer against the cited sections, so an unsupported "six mois / Article 99" makes that answer fail G1, and the release gate blocks the version if too many answers fail. In live use, the user can open each source and see the claim isn’t there.',
-        keyPoints: [
-          kp('Sources built by code from retrieved/cited passages', 'code', 'cited', 'retrieved', 'récupér', 'retrouv', 'built', 'construit'),
-          kp('Not parsed from the model text', 'not from', 'pas du', 'not parsed', 'model text', 'texte du modèle'),
-          kp('The wrong sentence is caught by the judge / G1 / gate', 'judge', 'juge', 'g1', 'gate', 'porte', 'groundedness', 'évaluation'),
-        ],
-        hints: [
-          'Look at make_answer: what variable are the source cards built from, and does it ever look at the text the model returned?',
-          'Invariant: sources come from retrieved and loaded passages, never from model output. A different mechanism checks whether the prose is faithful.',
-          'Similar case: a student’s bibliography is generated automatically from the library books they actually checked out. Can a fake book appear in it? Can the student still misquote a real book, and who catches that?',
-        ],
-        misconceptions: ['Saying the sentence cannot appear at all: the prose can still be wrong; the SOURCE LIST cannot.'],
-        source: 'agent/nodes.py make_answer; prompts/answer-writer/PROMPT.md; evaluation/scoring.py',
-      },
-      {
-        id: 'g11-2',
-        prompt: 'Why does SANAD hold back the first 40 characters when it streams an answer? Describe what the user would see without it.',
-        modelAnswer:
-          'The writer is allowed to reply exactly "NOT_COVERED" when the sections don’t answer, and that must become a refusal. If tokens were streamed immediately, the user would first see "NOT_COV…" appear as if an answer were starting, and then it would turn into a refusal: confusing, and it looks like a broken answer. Holding back the first 40 characters (STREAM_HOLD_CHARS) gives the app enough text to know whether this is NOT_COVERED before showing anything; once it clearly isn’t, the rest streams normally.',
-        keyPoints: [
-          kp('Writer may reply NOT_COVERED', 'not_covered', 'not covered'),
-          kp('Otherwise the user would see the start of a fake answer', 'see', 'voir', 'fake', 'start', 'début', 'confus', 'flash'),
-          kp('Hold back until it is clear, then stream', 'hold', 'retien', 'wait', 'attend', '40'),
-        ],
-        hints: [
-          'What special reply can the writer produce instead of an answer? What does it look like as it arrives letter by letter?',
-          'Invariant: the user must never see answer text for something that ends as a refusal.',
-          'Similar case: a TV live broadcast with a few seconds of delay so the producer can cut a problem before it airs. What is the "problem" here?',
-        ],
-        source: 'agent/answering.py STREAM_HOLD_CHARS; report p.66',
-      },
+      { id: "g11-1", prompt: "The model misbehaves and writes: \"Selon l’article 99 [3], la période d’essai est de six mois\", although Article 99 was never retrieved. Can \"Article 99\" appear in the SOURCE LIST shown to the user? Walk through why. And what, if anything, would catch the wrong sentence itself?", source: "agent/nodes.py make_answer; prompts/answer-writer/PROMPT.md; evaluation/scoring.py" },
+      { id: "g11-2", prompt: "Why does SANAD hold back the first 40 characters when it streams an answer? Describe what the user would see without it.", source: "agent/answering.py STREAM_HOLD_CHARS; report p.66" },
     ],
   },
 
@@ -1449,44 +1092,8 @@ Weak points to admit: the judge is the same Gemini family as the writer (it may 
     sayItFr:
       'Une démonstration choisie ne prouve rien. Nous avons donc écrit 60 questions en français sur le Code du travail, et nous les avons gelées avant tout réglage : 40 dont la réponse est dans les documents, 20 dont elle n’y est pas, sur des sujets voisins comme le télétravail. Un juge automatique vérifie que chaque affirmation est appuyée par une section citée. Les refus, eux, sont comptés mécaniquement. Et avant chaque version, un script applique les seuils.',
     gates: [
-      {
-        id: 'g12-1',
-        prompt: 'Jury: "Your judge is Gemini grading Gemini. Why should we believe 39/40?" Give an honest answer that admits the weakness, then gives what limits it and the planned fix.',
-        modelAnswer:
-          'The bias is real: a judge from the same model family can favour that family’s answers, and our judge even gave every answered question exactly 1.00. We declare it as a limit. Four things limit it. First, the judge sees exactly the sections the writer saw and must find every claim in them, and G1 counts only a perfect 1.00. Second, we read the low-scoring and failed answers by hand, question by question (the triage documents). Third, G2, the 20/20 refusals, does not depend on the judge at all: it is read from the answer type. Fourth, G3 is structural. The planned fix, at six months, is a second judge from another model family plus 20 answers graded by hand to measure agreement.',
-        keyPoints: [
-          kp('Admits same-family / self-preference bias', 'bias', 'biais', 'same family', 'même famille', 'self', 'auto'),
-          kp('Mitigation: sees exactly the cited sections / full 1.0 / manual triage', 'section', '1.0', '1,0', 'hand', 'main', 'triage', 'manual'),
-          kp('G2 does not depend on the judge', 'g2', 'refus', 'answer_kind', 'mechan', 'mécan'),
-          kp('Plan: second judge from another family + human grading', 'second judge', 'second juge', 'another family', 'autre famille', 'human', 'humain'),
-        ],
-        hints: [
-          'Which of your three promises actually needs the judge, and which ones don’t?',
-          'Rule for defending a weak point: (1) admit it plainly, (2) show what limits its damage, (3) give the fix and how you would measure it.',
-          'Similar case: a teacher grades their own students’ exams. What would you ask for to trust the grades: a second marker? A sample regraded by someone else? Map that onto SANAD.',
-        ],
-        misconceptions: ['Denying the bias.', 'Claiming the judge also decides the refusals.'],
-        source: 'Slide 17; report p.36, p.74, Table 6.7, Table C.1; evaluation/scoring.py',
-        juryVersionFr:
-          'Le biais existe : le juge vient de la même famille que le modèle noté, et nous le déclarons comme limite. Il est encadré : le juge voit exactement les sections que le rédacteur a vues, il faut une note parfaite de 1,0, et nous relisons les échecs à la main. Surtout, les 20 refus ne dépendent pas du juge : ils sont lus dans le type de réponse. La suite prévoit un second juge d’une autre famille et vingt réponses notées à la main.',
-      },
-      {
-        id: 'g12-2',
-        prompt: 'Why write and freeze the 60 questions BEFORE tuning anything? And how do you answer a jury member who found that two questions were changed after the freeze?',
-        modelAnswer:
-          'If you tune while looking at the test questions, you can make the system pass those exact questions (tweak a prompt for question 12, a threshold for question 30) without it getting better in general. That is overfitting the test, and the score stops meaning anything. Freezing first makes the score an honest estimate on unseen questions. On the two changes: they are real and documented. One "out-of-scope" question actually had its answer in article 156 and was reclassified; another, about article 240, was replaced. Each was versioned with its history (issue #88) and the earlier version was re-measured on the new set. In both cases the dataset was wrong and SANAD was right: we corrected the exam, not the system.',
-        keyPoints: [
-          kp('Tuning on the test inflates the score (overfitting)', 'overfit', 'sur-apprentissage', 'surapprentissage', 'tune', 'réglage', 'inflat', 'gonfl', 'teach to the test'),
-          kp('Two corrections: art. 156 reclassified, art. 240 replaced', '156', '240', 'two', 'deux'),
-          kp('Versioned and documented; dataset wrong, not system', 'version', 'document', '#88', 'dataset', 'jeu', 'not the system', 'pas le système'),
-        ],
-        hints: [
-          'If you could see question 12 while editing the prompt, what would stop you from editing it just for question 12?',
-          'Invariant: a test measures generalisation only if it is fixed independently of the tuning.',
-          'Similar case: a teacher gives the exact exam questions to study the night before. The class average goes up. Did learning improve?',
-        ],
-        source: 'Slide 14; report p.73; evaluation/golden/README.md',
-      },
+      { id: "g12-1", prompt: "Jury: \"Your judge is Gemini grading Gemini. Why should we believe 39/40?\" Give an honest answer that admits the weakness, then gives what limits it and the planned fix.", source: "Slide 17; report p.36, p.74, Table 6.7, Table C.1; evaluation/scoring.py" },
+      { id: "g12-2", prompt: "Why write and freeze the 60 questions BEFORE tuning anything? And how do you answer a jury member who found that two questions were changed after the freeze?", source: "Slide 14; report p.73; evaluation/golden/README.md" },
     ],
   },
   {
@@ -1556,40 +1163,8 @@ Warning: the note under slide 16 says "huit secondes en moyenne". Say "médiane"
     sayItFr:
       'Cinq versions, cinq portes passées. Les réponses fondées sont passées de 36 à 39 sur 40. Les 20 questions hors documents ont été refusées à chaque version, soit cent refus sur cent essais. Et aucune réponse n’est sortie sans source. Une précision : avec 40 questions, une réponse vaut 2,5 points, donc nous restons prudents sur les petits écarts. Côté vitesse, le temps médian est de 8,3 secondes, et 18,1 pour la question la plus lente.',
     gates: [
-      {
-        id: 'g13-1',
-        prompt: 'Jury: "You went from 36 to 39 out of 40. So your changes improved quality by 7.5 points?" Answer precisely, and mention one fact from the per-version failures that supports your caution.',
-        modelAnswer:
-          'Carefully: it is three questions out of 40, and each question is worth 2.5 points, so the percentages exaggerate the precision. We ran each version once, and the model varies from run to run (temperature is not fixed). For example, g-in-014 passed in 2.0.0 and failed again in 3.0.0 with no related code change, so a one-question move can happen by chance. We did not run ablations, so we cannot attribute the gain to a specific change. The honest reading: a trend in the right direction, every failure was a refusal (never an invented answer), and the one persistent failure, g-in-033, has a known cause.',
-        keyPoints: [
-          kp('3 questions / 2.5 points each', '2.5', '2,5', 'three questions', 'trois questions', '3 questions'),
-          kp('Run-to-run variation / one run per version', 'variation', 'variance', 'one run', 'une exécution', 'une seule', 'chance', 'hasard'),
-          kp('Concrete support: g-in-014 alternates, or no ablation', '014', 'ablation'),
-        ],
-        hints: [
-          'How many questions is 7.5 points? And how many times did you run each version?',
-          'Rule of thumb: with n = 40, a difference of one or two questions is within normal noise unless you repeat runs.',
-          'Similar case: a basketball player scores 36/40 free throws on Monday and 39/40 on Friday. Did Friday’s new shoes cause it? What would you need to know?',
-        ],
-        source: 'Slide 15; report Table 6.2 and Table 6.6, p.77; docs/evals/release-*.json',
-      },
-      {
-        id: 'g13-2',
-        prompt: 'Correct and complete this sentence for the jury: "Sanad répond en 8 secondes en moyenne, et synchronise 200 pages en moins de 10 minutes."',
-        modelAnswer:
-          'Corrected: "The MEDIAN answer time is 8.3 s over 20 timed questions (the slowest took 18.1 s; the target is a median of 20 s or less). It was measured on version 1; the first question after a start takes about 23 s while models load. For 200 pages, the 10-minute target was met on a quiet laptop (449 s and 375 s) and missed under load (732 s), mostly because computing embeddings uses the whole CPU. A re-sync of an unchanged folder takes 0.09 s." The two fixes: "moyenne" → "médiane", and "always under 10 minutes" → "under 10 minutes when the machine is not busy, missed once under load".',
-        keyPoints: [
-          kp('Median, not mean', 'median', 'médiane', 'mediane'),
-          kp('8.3 s median, 18.1 s slowest', '18', '8.3', '8,3'),
-          kp('200 pages: met when idle, missed under load (731.6 s)', 'load', 'charge', '731', '732', 'missed', 'manqué', 'dépass'),
-        ],
-        hints: [
-          'Is 8.3 s the average of the 20 times, or the middle value? And did all three 200-page runs finish in under 600 s?',
-          'Invariant: say exactly the statistic you measured (median ≠ mean), and report the failed run too.',
-          'Similar case: a delivery firm says "we deliver in 2 days on average". Three runs: 1 day, 1.5 days, 4 days (during a strike). How would you state it honestly?',
-        ],
-        source: 'Slide 16; report Tables 6.3–6.4 p.75–76; docs/defense/jury-questions.md Q19–20',
-      },
+      { id: "g13-1", prompt: "Jury: \"You went from 36 to 39 out of 40. So your changes improved quality by 7.5 points?\" Answer precisely, and mention one fact from the per-version failures that supports your caution.", source: "Slide 15; report Table 6.2 and Table 6.6, p.77; docs/evals/release-*.json" },
+      { id: "g13-2", prompt: "Correct and complete this sentence for the jury: \"Sanad répond en 8 secondes en moyenne, et synchronise 200 pages en moins de 10 minutes.\"", source: "Slide 16; report Tables 6.3–6.4 p.75–76; docs/defense/jury-questions.md Q19–20" },
     ],
   },
   {
@@ -1653,23 +1228,7 @@ Why say all this yourself? If the jury finds a weakness you hid, they doubt ever
     sayItFr:
       'Voici ce que notre travail ne prouve pas. Soixante questions, c’est peu. Les questions sont en français seulement. Le mode local n’a pas été mesuré. Le juge vient de la même famille que le modèle noté. Nos besoins viennent de notre expérience, pas d’entretiens. Et il reste un échec, la question 33 : un refus prudent, pas une invention. Pour chaque limite, nous avons une action datée et la mesure qui dira si c’est réussi.',
     gates: [
-      {
-        id: 'g14-1',
-        prompt: 'Choose the THREE limits you think a jury is most likely to attack first. For each: state the limit in one sentence, the planned fix, and the exact measure that will prove the fix worked.',
-        modelAnswer:
-          'Any three of these, each with its fix and metric. (1) Local mode not measured, although the title says "RAG local": run the 60 frozen questions with MODEL_MODE=local (Ollama) at 1 month; success is the same gates (≥36/40, 20/20, 100%). (2) Same-family judge: add a second judge from another model family and hand-grade 20 answers at 6 months; success is measured agreement between judges and humans. (3) Question 33, where the grader reads a 500-character extract: let the grader read the whole section at 1 month; success is 40/40 while keeping 20/20. (4) Only 60 French questions: 30 Arabic questions (3 months), 20 figure questions (3 months). (5) No user interviews: 3 HR interviews plus a 5-user test at 6 months. A good answer picks local mode or the judge first, because they touch the title claim and the main number.',
-        keyPoints: [
-          kp('Three limits named', 'local', 'judge', 'juge', '33', 'interview', 'entretien', 'arab', '60'),
-          kp('Each has a concrete fix', 'fix', 'plan', 'remède', 'next', 'suite', 'mois', 'month'),
-          kp('Each has a measurable success criterion', '40/40', '20/20', '36', 'measure', 'mesure', 'agreement', 'accord', 'metric', 'critère'),
-        ],
-        hints: [
-          'Which of your limits contradicts a word in your TITLE? Which one touches your headline 39/40?',
-          'Rule of thumb: limit → fix → number. A fix without a number to prove it is a wish.',
-          'Similar case: a car review says "the brakes were only tested on dry roads". Good manufacturer answer: "wet-road tests next month, target stopping distance under X m". Do the same for three SANAD limits.',
-        ],
-        source: 'Slides 17–18; report Table 6.7 p.77–78 and Table C.1 p.81',
-      },
+      { id: "g14-1", prompt: "Choose the THREE limits you think a jury is most likely to attack first. For each: state the limit in one sentence, the planned fix, and the exact measure that will prove the fix worked.", source: "Slides 17–18; report Table 6.7 p.77–78 and Table C.1 p.81" },
     ],
   },
 
@@ -1741,40 +1300,8 @@ Honest gaps to know: roles (admin, reader…) were removed in v3.1, so everyone 
     sayItFr:
       'Sept risques, sept protections : la connexion par Keycloak, le propriétaire vérifié à chaque accès avec la même réponse pour un espace inconnu ou interdit, les liens de sources qui ne s’ouvrent que depuis leur conversation, les identifiants filtrés contre les chemins piégés, des limites de débit par personne, le texte du modèle privé de HTML et de liens, et aucun secret dans les journaux.',
     gates: [
-      {
-        id: 'g15-1',
-        prompt: 'A signed-in user changes the workspace id in the URL to a colleague’s private workspace. What does SANAD return, and why is it important that the response is the SAME as for a workspace that doesn’t exist?',
-        modelAnswer:
-          'The owner check runs on every access, server-side. The user is not the owner and the workspace is not shared, so access is denied, with exactly the same response as for an id that doesn’t exist. That matters because a different "forbidden" answer would confirm the workspace exists: an attacker could probe ids and map who has which workspaces (enumeration), a leak by itself. Identical responses reveal nothing. (Isolation also holds at the data level: each workspace has its own Qdrant collection, so a search can’t cross into another workspace.)',
-        keyPoints: [
-          kp('Owner checked on every access server-side', 'owner', 'propriétaire', 'every access', 'chaque accès', 'server', 'serveur'),
-          kp('Same response for unknown and forbidden', 'same', 'même', 'identical', 'identique', '404', 'not found'),
-          kp('Prevents learning existence / enumeration', 'exist', 'enumer', 'énumér', 'probe', 'learn', 'apprend', 'reveal', 'révèl'),
-        ],
-        hints: [
-          'If SANAD answered "forbidden" for xyz but "not found" for zzz, what would the attacker have learned?',
-          'Rule of thumb: an error message is information. Give an unauthorised user no more information than a non-existent resource would.',
-          'Similar case: a hotel receptionist asked "is Mr X staying here?" answers the same way whether he is or not. Why?',
-        ],
-        source: 'Slide 20; report Table 4.6; app.py may_see/may_manage',
-      },
-      {
-        id: 'g15-2',
-        prompt: 'A PDF in a workspace contains the text: <a href="http://phishing.example">Cliquez ici pour votre indemnité</a>. The model copies it into its answer. What does the user see, and which protection is responsible?',
-        modelAnswer:
-          'The user sees plain text, not a clickable link. Model output is treated as untrusted and rendered with HTML, links and images disabled (ui/answer_format.py), so the anchor cannot become a working link, and a <script> or an image cannot run or load either. That is the "contenu injecté dans une réponse" protection on slide 20. The underlying rule: anything a document or a model produces is data, never markup or instructions.',
-        keyPoints: [
-          kp('Rendered as plain text / not clickable', 'plain', 'texte', 'not clickable', 'pas cliquable', 'inactive', 'désactiv', 'disabled'),
-          kp('HTML, links and images disabled in model output', 'html', 'link', 'lien', 'image'),
-          kp('Model/document output is untrusted', 'untrusted', 'non fiable', 'data', 'donnée', 'injection'),
-        ],
-        hints: [
-          'Where does the answer text come from, and should an application trust it more than a random web page?',
-          'Invariant: model output is untrusted input to the interface.',
-          'Similar case: a forum lets users post messages. Why do forums escape HTML before displaying posts?',
-        ],
-        source: 'Slide 20; ui/answer_format.py; report p.60',
-      },
+      { id: "g15-1", prompt: "A signed-in user changes the workspace id in the URL to a colleague’s private workspace. What does SANAD return, and why is it important that the response is the SAME as for a workspace that doesn’t exist?", source: "Slide 20; report Table 4.6; app.py may_see/may_manage" },
+      { id: "g15-2", prompt: "A PDF in a workspace contains the text: <a href=\"http://phishing.example\">Cliquez ici pour votre indemnité</a>. The model copies it into its answer. What does the user see, and which protection is responsible?", source: "Slide 20; ui/answer_format.py; report p.60" },
     ],
   },
   {
@@ -1843,24 +1370,7 @@ Likely jury question: "How did you use AI tools?" Answer truthfully, and the sam
     sayItFr:
       'Nous avons travaillé en Scrum à deux : huit sprints du 20 juillet au 19 septembre, une réunion chaque samedi, une branche par tâche, et aucune modification acceptée sans tests verts puis relecture par l’autre. En chiffres : 146 modifications fusionnées, plus de 1 400 tests, 5 versions publiées.',
     gates: [
-      {
-        id: 'g16-1',
-        prompt: 'Jury: "Who did what?" Give the answer for BOTH of you in 4–5 sentences, organised by following the path of a document then of a question, and end with how you checked each other’s work.',
-        modelAnswer:
-          'Following a document: Meriem built the ingestion side, meaning change detection, the converters, chunking, the Sync engine, the stores with their safe write order, the SQLite schema and workspaces, and the API contract. Youssef built the embeddings and the figure extraction. Following a question: Youssef built the agent graph, hybrid search, the grader, the answer and refusal paths, clarification and the LLM modes. Meriem built conversation memory, wrote the 60 questions, and built the evaluation engine, judge and release gate. On the product: Meriem rewrote the UI (including right-to-left), Youssef did login, rate limits, Docker and the final hosting. We checked each other through one branch per task, CI tests on every pull request, and a mandatory review by the other before any merge into protected main.',
-        keyPoints: [
-          kp('Meriem: ingestion / sync / chunking / stores', 'meriem', 'ingestion', 'sync', 'chunk', 'conversion', 'schema'),
-          kp('Meriem: evaluation / 60 questions / gate / UI', 'evaluation', 'évaluation', 'questions', 'gate', 'porte', 'ui', 'interface'),
-          kp('Youssef: agent graph / search / grader / figures / Docker / login', 'youssef', 'agent', 'graph', 'graphe', 'grader', 'figure', 'docker', 'login', 'keycloak'),
-          kp('Cross-check: branches, CI, mandatory review', 'review', 'relecture', 'relu', 'ci', 'branch', 'branche'),
-        ],
-        hints: [
-          'Draw the path of a document (folder → index) and of a question (question → answer). Put a name on each box.',
-          'Invariant: your two answers must match each other and Table 1.6 of the report. The jury may ask you separately.',
-          'Similar case: two cooks describe a restaurant kitchen: "I handle everything from delivery to the fridge, she handles everything from order to plate, and nothing leaves without the other tasting it."',
-        ],
-        source: 'Slide 6; report Table 1.6 and p.23–27',
-      },
+      { id: "g16-1", prompt: "Jury: \"Who did what?\" Give the answer for BOTH of you in 4–5 sentences, organised by following the path of a document then of a question, and end with how you checked each other’s work.", source: "Slide 6; report Table 1.6 and p.23–27" },
     ],
   },
   {
@@ -1939,40 +1449,8 @@ Honesty point: Railway is the cloud. The online demo exists for convenience, wit
     sayItFr:
       'En local, une commande suffit. L’image Docker est construite en deux étapes : PyTorch en version CPU seulement, et les modèles d’embedding intégrés à l’image. Sur Railway, le service web est reconstruit à partir de la branche main de GitHub, et un volume persistant garde la base, l’index et les sections. Keycloak tourne comme un service séparé.',
     gates: [
-      {
-        id: 'g17-1',
-        prompt: 'Railway redeploys the app after a merge. Why are the workspaces, index and chat history still there afterwards, and what would happen without the volume? Also: why doesn’t the new container need to download the E5 model at boot?',
-        modelAnswer:
-          'All state lives under /app/data (SQLite sanad.db, the Qdrant folder, parent JSON, figures, reports), and on Railway that path is a persistent volume mounted into each new container. The redeploy replaces the container, but the volume survives, so everything is still there. Without the volume, the container’s own filesystem would be thrown away on every redeploy or restart: all workspaces, the index and the history would vanish and every document would need a new Sync. The E5 and BM25 weights were downloaded at image build time (in the Dockerfile’s builder stage) and baked into the image, so boot doesn’t depend on a download (the image even runs with the Hugging Face hub in offline mode).',
-        keyPoints: [
-          kp('State under /app/data on a persistent volume', 'volume', '/app/data', 'persist'),
-          kp('Container disk is ephemeral: without volume everything lost, resync needed', 'ephemeral', 'éphémère', 'lost', 'perdu', 'vanish', 'dispar', 'resync', 'resynchron'),
-          kp('Model weights baked into the image at build', 'baked', 'image', 'build', 'intégr', 'download', 'télécharg'),
-        ],
-        hints: [
-          'Where on disk does SANAD keep its database and index? Is that place part of the container, or attached to it?',
-          'Invariant: a container is disposable. Only what is on a mounted volume survives a redeploy.',
-          'Similar case: a rental car is swapped for a new one every week. What must you keep in your own bag instead of the glovebox?',
-        ],
-        source: 'railway.json; Dockerfile; docs/journal/BUILD-STATE.md (sanad-web from GitHub main, volume on /app/data)',
-      },
-      {
-        id: 'g17-2',
-        prompt: 'Why does the Dockerfile deliberately install the CPU-only version of PyTorch, and why does the build fail on purpose if its GPU filter drops nothing?',
-        modelAnswer:
-          'PyTorch is needed by the E5 embedding model (sentence-transformers). The default Linux install pulls CUDA/GPU packages (nvidia-*, triton) that weigh several gigabytes, but neither the laptop nor Railway has a GPU, so they would be dead weight: slower builds, a bigger image and more memory. The Dockerfile removes those rows from the locked requirements and installs the CPU wheel pinned to the same version as uv.lock. If the filter dropped nothing, the lockfile format or platform changed and the GPU packages would silently come back, so the build stops with a clear error instead of producing a bloated image. It’s the same philosophy as the rest of the project: fail loudly rather than degrade silently.',
-        keyPoints: [
-          kp('No GPU available; CUDA packages are huge', 'gpu', 'cuda', 'nvidia', 'size', 'taille', 'gb', 'go', 'heavy', 'lourd'),
-          kp('CPU wheel pinned to uv.lock version', 'pin', 'uv.lock', 'version', 'lock'),
-          kp('Fail loudly instead of silently bloating', 'fail', 'échou', 'silent', 'silenc', 'loud', 'error', 'erreur'),
-        ],
-        hints: [
-          'What hardware does Railway give this app? What do the nvidia-* packages need to be useful?',
-          'Invariant: the image should contain what the app can actually use, pinned to the tested versions.',
-          'Similar case: shipping a laptop with a 4 kg power supply for a desk that has no socket for it. And if the packing script accidentally stopped removing it, would you rather it warn or silently ship it?',
-        ],
-        source: 'Dockerfile builder stage; report p.64 and p.70',
-      },
+      { id: "g17-1", prompt: "Railway redeploys the app after a merge. Why are the workspaces, index and chat history still there afterwards, and what would happen without the volume? Also: why doesn’t the new container need to download the E5 model at boot?", source: "railway.json; Dockerfile; docs/journal/BUILD-STATE.md (sanad-web from GitHub main, volume on /app/data)" },
+      { id: "g17-2", prompt: "Why does the Dockerfile deliberately install the CPU-only version of PyTorch, and why does the build fail on purpose if its GPU filter drops nothing?", source: "Dockerfile builder stage; report p.64 and p.70" },
     ],
   },
   {
@@ -2051,23 +1529,7 @@ Classes (annex E): ChunkedDocument, Parent, Child, SearchHit, and Answer. Answer
     sayItFr:
       'Le code suit les deux trajets. Pour un document : détection des changements, conversion, découpage, embeddings, puis Qdrant et les sections, orchestrés par sync.py. Pour une question : le graphe dans agent/graph.py, et chaque appel au modèle passe par un « port ». En production on branche Gemini ou Ollama ; en test, un faux modèle scénarisé. C’est ce qui permet plus de 1 400 tests sans clé d’API.',
     gates: [
-      {
-        id: 'g18-1',
-        prompt: 'A jury member opens agent/ports.py: "Why are these eight functions passed in, with no default implementation? Isn’t that over-engineering?"',
-        modelAnswer:
-          'The graph never creates its own model or database client. It receives the eight functions (summarize, clarify, rewrite, retrieve, grade, reword, fetch_parents, write_answer) through AgentPorts: that is dependency injection. It lets us plug in the real Gemini/Ollama and Qdrant versions in production (one composition root, ui/ports.py) and scripted fakes in tests, so about 1,400 tests run fast, deterministically and without an API key, while still exercising the real routing logic. And there is no default on purpose: a default stub that "answers plausibly" could silently ship to production and produce fluent, unsourced answers, the exact failure SANAD exists to prevent. Forcing every caller to pass real ports makes that impossible to forget.',
-        keyPoints: [
-          kp('Dependency injection: real in prod, fakes in tests', 'inject', 'fake', 'faux', 'test', 'mock'),
-          kp('Tests run without API key / deterministic', 'api key', "clé d'api", 'cle', 'without', 'sans', 'determin', 'fast', 'rapide'),
-          kp('No default because a plausible stub is dangerous', 'default', 'défaut', 'stub', 'dangerous', 'dangereu', 'plausib', 'silent'),
-        ],
-        hints: [
-          'How do 1,400 tests exercise the agent without ever calling Gemini?',
-          'Invariant: code that depends on an interface, not a concrete service, can be tested with a stand-in, and the stand-in must never be picked up by accident in production.',
-          'Similar case: a flight simulator swaps the real engines for simulated ones, but a real plane must never take off with "simulator mode" as the default. Why?',
-        ],
-        source: 'agent/ports.py; agent/graph.py build_graph docstring; ui/ports.py; tests/fake_chat.py',
-      },
+      { id: "g18-1", prompt: "A jury member opens agent/ports.py: \"Why are these eight functions passed in, with no default implementation? Isn’t that over-engineering?\"", source: "agent/ports.py; agent/graph.py build_graph docstring; ui/ports.py; tests/fake_chat.py" },
     ],
   },
   {
@@ -2128,60 +1590,9 @@ Traps to watch for:
     sayItFr:
       'Méthode pour chaque question : répondre d’abord, donner un fait précis, nommer soi-même la limite et sa correction prévue, puis s’arrêter.',
     gates: [
-      {
-        id: 'g19-1',
-        prompt: 'Jury: "Your title says RAG LOCAL, but your results were obtained with Gemini and your demo runs on Railway. Isn’t the title misleading?"',
-        modelAnswer:
-          'SANAD has two modes. In local mode, with Ollama, nothing leaves the machine; in cloud mode, the question and the retrieved passages go to Gemini. The documents, the index and the database always stay local, and the embeddings are always computed locally. It is true that all our measurements were made in cloud mode and that local mode has not been measured. That is our declared limit and our first action at one month: run the same 60 frozen questions in local mode against the same gates. The Railway deployment is for the demo, on a public corpus chosen for that reason. For real documents the plan is an install on the organisation’s machine in local mode, after a data-protection review under law 09-08. So "local" describes the architecture and the option, not the mode we measured, and we say so on slide 17.',
-        keyPoints: [
-          kp('Two modes: local (Ollama) nothing leaves; cloud sends question + passages', 'ollama', 'two modes', 'deux modes', 'cloud'),
-          kp('Admits results measured in cloud mode, local not measured', 'not measured', 'pas mesuré', 'non mesuré', 'cloud mode'),
-          kp('Plan: evaluate local mode on the 60 questions', '60', 'measure', 'mesurer', 'month', 'mois'),
-          kp('Railway = demo on public corpus', 'railway', 'demo', 'démo', 'public'),
-        ],
-        hints: [
-          'What exactly leaves the machine in each of your two modes? And in which mode were your numbers produced?',
-          'Rule: admit the fact, say what "local" does guarantee, and give the dated plan that closes the gap.',
-          'Similar case: a car advertised as "electric-capable" (a plug-in hybrid) whose fuel figures were all measured in petrol mode. How would an honest engineer phrase it?',
-        ],
-        source: 'Slides 1, 8, 17, 18; report p.60, p.70, p.77, Table C.1',
-        juryVersionFr:
-          'Sanad a deux modes. En mode local, avec Ollama, rien ne sort de la machine ; en mode cloud, la question et les passages retenus partent vers Gemini. Les documents, l’index et la base restent toujours locaux. C’est vrai : toutes nos mesures sont en mode cloud et le mode local n’est pas encore mesuré. C’est notre première action à un mois, avec les mêmes 60 questions et les mêmes seuils. Railway sert à la démonstration, sur un corpus public.',
-      },
-      {
-        id: 'g19-2',
-        prompt: 'Jury: "Why don’t you just set a similarity threshold (say 0.7) and refuse below it, instead of asking an LLM grader?"',
-        modelAnswer:
-          'Because our retrieval scores cannot measure relevance. The final ranking comes from RRF, which scores rank positions: the best hit of a search with nothing relevant still gets the top RRF score. A raw cosine threshold on the dense side isn’t reliable either. A passage can be close in meaning ("same subject") without containing the answer, and the right cut-off differs from one question and corpus to another. The grader answers the actual question, "could someone write part of an answer from these passages?", and its prompt says the same subject is not enough. The cost is one LLM call per round, and grader errors (question 33 is one). Those are measured by the 60-question evaluation. SANAD uses a dense top-1 similarity only for suggesting which workspace to ask when none is selected, not for refusing.',
-        keyPoints: [
-          kp('RRF score is rank-based, not relevance', 'rank', 'rang', 'rrf'),
-          kp('Similar ≠ answers the question; threshold not reliable', 'same subject', 'même sujet', 'similar', 'similaire', 'threshold', 'seuil', 'unreliable', 'fiable'),
-          kp('Grader judges whether passages answer, at a cost / measured', 'grader', 'vérificateur', 'llm', 'cost', 'coût', 'measured', 'mesur', '33'),
-        ],
-        hints: [
-          'What does an RRF score actually encode? Would the top hit of a completely irrelevant search get a low score?',
-          'Invariant: "close in meaning" and "contains the answer" are different properties; only the second justifies answering.',
-          'Similar case: a library search always returns a "best match", even for a book it doesn’t own. Would you trust "best match score > 0.7" to mean "we have your book"?',
-        ],
-        source: 'vector_store.py (Fusion.RRF, dense_top1_similarity docstring); prompts/relevance-grader/PROMPT.md',
-      },
-      {
-        id: 'g19-3',
-        prompt: 'Jury: "How did you use AI tools, like code assistants, in this project? How do we know you understand the code?" Give a truthful structure for your answer. What must it contain, and what must you avoid?',
-        modelAnswer:
-          'Structure: (1) State plainly and truthfully which AI tools you used and for what (e.g. code generation and drafting), consistently with your partner. The jury may ask you separately, and the repository history can show it. (2) Explain how you kept control: every change went through a branch, CI tests and the other person’s review; you broke code on purpose to prove tests can fail; the evaluation gate measured behaviour independently of who wrote the code; and the Definition of Done required the owner to explain each change aloud in one minute. (3) Prove understanding on the spot: offer to walk through one path, e.g. a question through the nine nodes, or why the write order prevents broken citations. Avoid: denying or minimising use that happened, giving different stories, and claiming you "wrote every line by hand" if you didn’t.',
-        keyPoints: [
-          kp('Truthful and consistent between partners', 'truth', 'honnête', 'honest', 'vrai', 'consistent', 'cohérent', 'same', 'même'),
-          kp('Control: tests, review, gate, break-on-purpose', 'test', 'review', 'relecture', 'gate', 'porte', 'break', 'casser'),
-          kp('Demonstrate understanding (walk through a path)', 'explain', 'expliqu', 'walk', 'démontr', 'demonstr', 'show', 'montrer'),
-        ],
-        hints: [
-          'What happens to your credibility if the jury checks the repository history after you answer?',
-          'Invariant: in a defense, understanding is shown, not claimed. Pair honesty about the tools with evidence of control and a live explanation.',
-          'Similar case: a surgeon who used a robot is asked "did the robot do it?". The good answer says what the robot did, what the surgeon controlled, and how the outcome was verified.',
-        ],
-        source: 'docs/defense/jury-questions.md Q30; report p.24 (Definition of Done), p.70 ("casser pour vérifier")',
-      },
+      { id: "g19-1", prompt: "Jury: \"Your title says RAG LOCAL, but your results were obtained with Gemini and your demo runs on Railway. Isn’t the title misleading?\"", source: "Slides 1, 8, 17, 18; report p.60, p.70, p.77, Table C.1" },
+      { id: "g19-2", prompt: "Jury: \"Why don’t you just set a similarity threshold (say 0.7) and refuse below it, instead of asking an LLM grader?\"", source: "vector_store.py (Fusion.RRF, dense_top1_similarity docstring); prompts/relevance-grader/PROMPT.md" },
+      { id: "g19-3", prompt: "Jury: \"How did you use AI tools, like code assistants, in this project? How do we know you understand the code?\" Give a truthful structure for your answer. What must it contain, and what must you avoid?", source: "docs/defense/jury-questions.md Q30; report p.24 (Definition of Done), p.70 (\"casser pour vérifier\")" },
     ],
   },
 ];

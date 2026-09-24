@@ -2,6 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { grade, CoachError, coachConfigured } from './coach/grade.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,17 +32,41 @@ const MIME_TYPES = {
   '.map': 'application/json',
 };
 
-// Answer coach: proxies grading requests to Gemini so the API key stays on the server.
-// Set GEMINI_API_KEY (and optionally GEMINI_MODEL) in the Railway service variables.
-// gemini-3.6-flash is the model RAG_project_ENSA pins (gemini-2.0-flash was retired on 27 Aug 2026).
-const COACH_MODELS = [process.env.GEMINI_MODEL, 'gemini-3.6-flash', 'gemini-2.5-flash'].filter(Boolean);
-const COACH_MAX_BODY = 64 * 1024;
+// Answer coach: POST /api/coach/grade. The Gemini key (GEMINI_API_KEY) stays on the server.
+// Every call spends the key's quota, so each visitor and the whole site are rate limited.
+const COACH_MAX_BODY = 32 * 1024;
+const COACH_PER_IP = { limit: 30, windowMs: 10 * 60 * 1000 };
+const COACH_GLOBAL = { limit: 600, windowMs: 60 * 60 * 1000 };
+const coachHits = new Map();
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, times] of coachHits) {
+    if (!times.some((time) => now - time < COACH_GLOBAL.windowMs)) coachHits.delete(key);
+  }
+}, COACH_PER_IP.windowMs).unref();
+
+function overLimit(key, { limit, windowMs }) {
+  const now = Date.now();
+  const recent = (coachHits.get(key) || []).filter((time) => now - time < windowMs);
+  if (recent.length >= limit) {
+    coachHits.set(key, recent);
+    return true;
+  }
+  recent.push(now);
+  coachHits.set(key, recent);
+  return false;
+}
+
+function sendJson(res, status, body) {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.end(JSON.stringify(body));
+}
 
 function handleCoach(req, res) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    res.writeHead(503, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'coach_not_configured' }));
+  // Railway's proxy puts the visitor's address first in X-Forwarded-For.
+  const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+  if (overLimit(`ip:${ip}`, COACH_PER_IP) || overLimit('global', COACH_GLOBAL)) {
+    sendJson(res, 429, { error: 'rate_limited' });
     return;
   }
 
@@ -50,8 +75,7 @@ function handleCoach(req, res) {
   req.on('data', (chunk) => {
     size += chunk.length;
     if (size > COACH_MAX_BODY) {
-      res.writeHead(413, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'payload_too_large' }));
+      sendJson(res, 413, { error: 'payload_too_large' });
       req.destroy();
       return;
     }
@@ -63,52 +87,28 @@ function handleCoach(req, res) {
     try {
       payload = JSON.parse(Buffer.concat(chunks).toString('utf8'));
     } catch {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'invalid_json' }));
+      sendJson(res, 400, { error: 'invalid_json' });
       return;
     }
-    if (typeof payload.system !== 'string' || typeof payload.user !== 'string') {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'missing_fields' }));
-      return;
-    }
-
-    const body = JSON.stringify({
-      systemInstruction: { parts: [{ text: payload.system }] },
-      contents: [{ role: 'user', parts: [{ text: payload.user }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 2048, responseMimeType: 'application/json' },
-    });
-
-    let lastError = 'unknown';
-    for (const model of COACH_MODELS) {
-      try {
-        const upstream = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-          { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey }, body }
-        );
-        if (upstream.ok) {
-          const data = await upstream.json();
-          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) {
-            res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-            res.end(JSON.stringify({ text }));
-            return;
-          }
-          lastError = 'empty_response';
-        } else {
-          lastError = `upstream_${upstream.status}`;
-        }
-      } catch (e) {
-        lastError = e?.message || 'network_error';
+    try {
+      sendJson(res, 200, await grade(payload));
+    } catch (error) {
+      if (error instanceof CoachError) {
+        sendJson(res, error.status, { error: error.code });
+        return;
       }
+      console.error('[coach] unexpected error', error);
+      sendJson(res, 500, { error: 'internal_error' });
     }
-    res.writeHead(502, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: lastError }));
   });
 }
 
 const server = http.createServer((req, res) => {
-  if (req.method === 'POST' && req.url.split('?')[0] === '/api/coach') {
+  if (req.url.split('?')[0] === '/api/coach/grade') {
+    if (req.method !== 'POST') {
+      sendJson(res, 405, { error: 'method_not_allowed' });
+      return;
+    }
     handleCoach(req, res);
     return;
   }
@@ -126,33 +126,26 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Check if file exists; if not, fallback to index.html for SPA routing
+  // This course has one page. Old audio and removed course URLs must be 404.
   fs.stat(filePath, (err, stats) => {
     if (err || !stats.isFile()) {
-      filePath = path.join(DIST_DIR, 'index.html');
-      fs.stat(filePath, (err2, stats2) => {
-        if (err2 || !stats2.isFile()) {
-          res.writeHead(404, { 'Content-Type': 'text/plain' });
-          res.end('404 Not Found - Build artifacts missing');
-          return;
-        }
-        serveFile(req, res, filePath, stats2, true);
-      });
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('404 Not Found');
       return;
     }
 
-    serveFile(req, res, filePath, stats, false);
+    serveFile(req, res, filePath, stats);
   });
 });
 
-function serveFile(req, res, filePath, stats, isSpaFallback) {
+function serveFile(req, res, filePath, stats) {
   const ext = path.extname(filePath).toLowerCase();
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
   const totalSize = stats.size;
 
   // Caching headers
   let cacheControl = 'public, max-age=3600';
-  if (isSpaFallback || ext === '.html' || ext === '.json' || path.basename(filePath) === 'sw.js') {
+  if (ext === '.html' || ext === '.json' || path.basename(filePath) === 'sw.js') {
     cacheControl = 'no-cache, no-store, must-revalidate';
   } else if (filePath.includes('/assets/')) {
     cacheControl = 'public, max-age=31536000, immutable';
@@ -200,4 +193,5 @@ function serveFile(req, res, filePath, stats, isSpaFallback) {
 
 server.listen(PORT, HOST, () => {
   console.log(`Sanad Academy production server running at http://${HOST}:${PORT}`);
+  console.log(`Answer coach: ${coachConfigured() ? 'Gemini key configured' : 'GEMINI_API_KEY missing or placeholder, grading disabled'}`);
 });

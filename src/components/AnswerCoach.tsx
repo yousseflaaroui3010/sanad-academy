@@ -1,396 +1,211 @@
-import React, { useState } from 'react';
-import {
-  AlertTriangle,
-  CheckCircle2,
-  CircleDashed,
-  Eye,
-  GraduationCap,
-  Lightbulb,
-  Loader2,
-  MessageSquareWarning,
-  RotateCcw,
-  Scale,
-  Sparkles,
-} from 'lucide-react';
-import { gradeAnswer } from '../services/coachService';
-import type { CoachExercise, CoachVerdict, FreshGate } from '../services/coachService';
-import { getRecord, recordAttempt } from '../services/progressLedger';
+import { useEffect, useState } from 'react';
 
-interface AnswerCoachProps {
-  exercise: CoachExercise;
-  lang?: 'en' | 'fr';
-  label?: string;
-  compact?: boolean;
-  onPassed?: (id: string) => void;
-  onGraded?: (verdict: CoachVerdict) => void;
+// The model answers live on the server (coach/exercises.js). This component sends only the
+// exercise number and the learner's text, then shows the coach's feedback.
+
+interface CoachResult {
+  verdict: 'pass' | 'not_yet' | 'unsure';
+  whatYouGotRight: string;
+  brokenStep: string;
+  misconception: string;
+  fluencyWarning: boolean;
+  hint: string;
+  probeQuestion: string;
+  walkthrough: string;
+  remember: string;
+  freshGate: { prompt: string; token: string } | null;
+  juryFollowUp: string;
 }
 
-const RUNG_LABEL = {
-  en: ['Hint 1 · a question', 'Hint 2 · the rule', 'Hint 3 · a similar example'],
-  fr: ['Indice 1 · une question', 'Indice 2 · la règle', 'Indice 3 · un exemple voisin'],
+interface CoachState {
+  attempts: string[];
+  result: CoachResult | null;
+  gate: { prompt: string; token: string } | null;
+}
+
+const EMPTY: CoachState = { attempts: [], result: null, gate: null };
+const storageKey = (id: number | string) => `sanad_coach_v1_${id}`;
+
+function loadState(id: number | string): CoachState {
+  try {
+    const saved = JSON.parse(localStorage.getItem(storageKey(id)) || 'null');
+    return saved && Array.isArray(saved.attempts) ? { ...EMPTY, ...saved } : EMPTY;
+  } catch {
+    return EMPTY;
+  }
+}
+
+const ERRORS: Record<string, string> = {
+  coach_not_configured: 'Le correcteur n’est pas encore configuré sur le serveur (clé Gemini absente). Votre réponse est gardée ici.',
+  rate_limited: 'Trop de corrections en peu de temps. Attendez quelques minutes, puis réessayez : votre réponse est gardée.',
+  upstream_failed: 'Le modèle Gemini n’a pas répondu. Ce n’est pas une note : réessayez dans un instant.',
+  bad_model_reply: 'Le modèle a renvoyé une correction illisible. Ce n’est pas une note : réessayez.',
+  invalid_gate: 'Le nouvel exercice a expiré (le serveur a changé de clé). Recommencez l’exercice.',
 };
 
-// Callers give each instance key={exercise.id} so state resets when the exercise changes.
-export const AnswerCoach: React.FC<AnswerCoachProps> = ({ exercise, lang = 'en', label, compact, onPassed, onGraded }) => {
-  const fr = lang === 'fr';
-  const [answer, setAnswer] = useState('');
-  const [confidence, setConfidence] = useState<number | null>(null);
-  const [attempts, setAttempts] = useState<string[]>([]);
-  const [verdict, setVerdict] = useState<CoachVerdict | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [activeGate, setActiveGate] = useState<FreshGate | null>(null);
-  const [revealed, setRevealed] = useState(false);
-  const [pushback, setPushback] = useState('');
-  const [showPushback, setShowPushback] = useState(false);
-  const [lastConfidence, setLastConfidence] = useState(3);
-  const previous = getRecord(exercise.id);
+const VERDICTS = {
+  pass: { label: 'Réussi', tone: 'border-green-700 bg-green-50 text-green-950' },
+  not_yet: { label: 'Pas encore', tone: 'border-amber-600 bg-amber-50 text-amber-950' },
+  unsure: { label: 'Correction incertaine', tone: 'border-slate-500 bg-slate-50 text-slate-900' },
+};
 
-  const attemptNumber = attempts.length + 1;
-  const passed = verdict?.verdict === 'pass';
-  const canReveal = passed || attempts.length >= 4 || revealed;
+export function AnswerCoach({ exerciseId, heading, question, onSkip, skipLabel, feedbackLang, onGraded }: {
+  exerciseId: number | string;
+  heading: string;
+  question: string;
+  onSkip: () => void;
+  skipLabel: string;
+  // 'en' asks the server for feedback in plain English (the Defense Path is written in English).
+  feedbackLang?: 'fr' | 'en';
+  onGraded?: (graded: { verdict: CoachResult['verdict']; attempt: number; confidence: number; freshGate: boolean }) => void;
+}) {
+  const [state, setState] = useState<CoachState>(() => loadState(exerciseId));
+  const [confidence, setConfidence] = useState('');
+  const [answer, setAnswer] = useState('');
+  const [pushback, setPushback] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(storageKey(exerciseId), JSON.stringify(state));
+    } catch {
+      // Without storage the attempt history simply lasts until the page is left.
+    }
+  }, [exerciseId, state]);
+
+  const { attempts, result, gate } = state;
+  const passed = result?.verdict === 'pass';
+
+  const send = async (body: Record<string, unknown>) => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch('/api/coach/grade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exerciseId, gateToken: gate?.token, feedbackLang, ...body }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data) {
+        const code = data?.error || `HTTP ${response.status}`;
+        setError(ERRORS[code] || `Le correcteur a échoué (${code}). Votre réponse est gardée : réessayez.`);
+        return null;
+      }
+      return data as CoachResult;
+    } catch {
+      setError('Impossible de joindre le serveur (réseau coupé ?). Votre réponse est gardée : réessayez.');
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const submit = async () => {
-    if (!answer.trim() || confidence === null || loading) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await gradeAnswer({
-        exercise,
-        activeGate,
-        answer: answer.trim(),
-        confidence,
-        attempt: attemptNumber,
-        previousAttempts: attempts,
-        lang,
-      });
-      setVerdict(result);
-      onGraded?.(result);
-      setAttempts((a) => [...a, answer.trim()]);
-      setLastConfidence(confidence);
-      if (result.verdict !== 'unsure') {
-        recordAttempt(activeGate ? `${exercise.id}#fresh` : exercise.id, {
-          passed: result.verdict === 'pass',
-          attemptNumber,
-          confidence,
-          helped: attemptNumber > 1 || revealed || !!activeGate,
-        });
-        if (result.verdict === 'pass') onPassed?.(exercise.id);
-      }
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
+    const text = answer.trim();
+    const graded = await send({ answer: text, confidence: Number(confidence), attempt: attempts.length + 1, previousAttempts: attempts });
+    if (!graded) return;
+    onGraded?.({ verdict: graded.verdict, attempt: attempts.length + 1, confidence: Number(confidence), freshGate: Boolean(gate) });
+    setConfidence('');
+    setPushback('');
+    if (graded.freshGate) {
+      // A new exercise of the same kind: its attempts start again from 1.
+      setState({ attempts: [], result: graded, gate: graded.freshGate });
+      setAnswer('');
+    } else {
+      setState({ attempts: [...attempts, text], result: graded, gate });
     }
   };
 
-  const sendPushback = async () => {
-    if (!verdict || !pushback.trim() || loading) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await gradeAnswer({
-        exercise,
-        activeGate,
-        answer: attempts[attempts.length - 1] ?? '',
-        confidence: lastConfidence,
-        attempt: attempts.length,
-        previousAttempts: attempts.slice(0, -1),
-        pushback: { previousVerdict: verdict, argument: pushback.trim() },
-        lang,
-      });
-      setVerdict(result);
-      setShowPushback(false);
-      setPushback('');
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
+  const contest = async () => {
+    if (!result || !attempts.length) return;
+    const graded = await send({
+      answer: attempts[attempts.length - 1],
+      confidence: 3,
+      attempt: attempts.length,
+      previousAttempts: attempts.slice(0, -1),
+      pushback: { previousVerdict: result.verdict, argument: pushback.trim() },
+    });
+    if (!graded) return;
+    setPushback('');
+    setState({ ...state, result: { ...graded, freshGate: null } });
   };
 
-  const retry = () => {
+  const restart = () => {
+    setState(EMPTY);
     setAnswer('');
-    setConfidence(null);
-    setVerdict(passed ? null : verdict);
+    setConfidence('');
+    setError('');
   };
 
-  const startFreshGate = (gate: FreshGate) => {
-    setActiveGate(gate);
-    setAttempts([]);
-    setVerdict(null);
-    setAnswer('');
-    setConfidence(null);
-    setRevealed(false);
-  };
-
-  const rungIdx = Math.min(attempts.length, 3) - 1;
+  const shownQuestion = gate ? gate.prompt : question;
+  const verdict = result ? VERDICTS[result.verdict] : null;
+  const fieldId = `coach-${exerciseId}`;
 
   return (
-    <div className={`liquid-glass rounded-3xl ${compact ? 'p-4' : 'p-5 sm:p-6'} shadow-sm space-y-4`}>
-      <div className="flex items-start justify-between gap-3 border-b border-black/5 pb-3">
-        <div className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center shrink-0">
-            <GraduationCap size={15} />
+    <section aria-labelledby={`${fieldId}-titre`} className="space-y-4 rounded-2xl border border-blue-200 bg-blue-50 p-5 sm:p-6">
+      <h2 id={`${fieldId}-titre`} className="text-xl font-semibold">{heading}</h2>
+      {gate && <p className="text-sm font-semibold text-blue-800">Nouvel exercice du même type : réussissez-le pour valider la notion.</p>}
+      <p>{shownQuestion}</p>
+
+      {!passed && <>
+        <label htmlFor={`${fieldId}-confiance`} className="block font-medium">Avant de répondre : confiance de 1 à 5</label>
+        <select id={`${fieldId}-confiance`} value={confidence} onChange={(event) => setConfidence(event.target.value)} className="block rounded-lg border border-slate-500 bg-white p-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">
+          <option value="">Choisir</option>
+          {[1, 2, 3, 4, 5].map((note) => <option key={note} value={note}>{note}</option>)}
+        </select>
+        <label htmlFor={`${fieldId}-reponse`} className="block font-medium">
+          Votre raisonnement{attempts.length ? ` · tentative ${attempts.length + 1}` : ''}
+        </label>
+        <textarea id={`${fieldId}-reponse`} value={answer} onChange={(event) => setAnswer(event.target.value)} rows={5} maxLength={4000} className="w-full rounded-lg border border-slate-500 bg-white p-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700" />
+      </>}
+
+      <div className="flex flex-wrap gap-3">
+        {!passed && <button type="button" disabled={!confidence || !answer.trim() || loading} onClick={submit} aria-busy={loading} className="rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 disabled:cursor-not-allowed disabled:opacity-50">
+          {loading ? 'Correction en cours…' : 'Faire corriger ma réponse'}
+        </button>}
+        {(attempts.length > 0 || gate || passed) && <button type="button" onClick={restart} disabled={loading} className="rounded-lg border border-slate-500 bg-white px-4 py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 disabled:opacity-50">Recommencer l’exercice</button>}
+        <button type="button" onClick={onSkip} className="rounded-lg border border-blue-700 bg-white px-4 py-2 font-semibold text-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">{skipLabel}</button>
+      </div>
+      {!confidence && !passed && answer.trim() && <p className="text-sm text-slate-700">Choisissez votre confiance pour activer la correction : comparer confiance et résultat montre ce qui est vraiment su.</p>}
+      <p className="text-sm text-slate-700">La réponse complète reste cachée : vous recevez d’abord des indices, puis la correction à la 4ᵉ tentative. « Passé » ne veut pas dire « maîtrisé ».</p>
+
+      {error && <p role="alert" className="rounded-lg border border-red-700 bg-red-50 p-3 font-medium text-red-900">{error}</p>}
+
+      <div role="status" aria-live="polite">
+        {result && verdict && !loading && (
+          <div className={`space-y-3 rounded-xl border-2 p-4 leading-relaxed ${verdict.tone}`}>
+            <p className="text-lg font-bold">{verdict.label}{result.freshGate ? ' · correction pas à pas, puis un nouvel exercice' : ''}</p>
+            {result.fluencyWarning && <p className="font-semibold">Vous étiez sûr·e de vous (4 ou 5 sur 5), mais ce n’est pas encore juste. C’est exactement le point à revoir : le sentiment de savoir n’est pas le savoir.</p>}
+            {result.whatYouGotRight && <Block title="Ce qui est juste">{result.whatYouGotRight}</Block>}
+            {result.brokenStep && <Block title="Où le raisonnement casse">{result.brokenStep}</Block>}
+            {result.misconception && <Block title="L’idée fausse derrière">{result.misconception}</Block>}
+            {result.hint && <Block title="Indice">{result.hint}</Block>}
+            {result.walkthrough && <Block title={passed ? 'Version prête pour le jury' : 'Correction pas à pas'}>{result.walkthrough}</Block>}
+            {result.remember && <Block title="À retenir">{result.remember}</Block>}
+            {result.probeQuestion && <Block title="Question pour ancrer l’idée">{result.probeQuestion}</Block>}
+            {result.juryFollowUp && <Block title="Ce que le jury pourrait demander ensuite">{result.juryFollowUp}</Block>}
           </div>
-          <div>
-            <h3 className="text-xs sm:text-sm font-semibold text-[#1d1d1f]">
-              {label ?? (fr ? 'Porte · réponds à froid' : 'Gate · answer cold')}
-            </h3>
-            <p className="text-[11px] text-[#86868b]">
-              {fr
-                ? 'Sans notes. Écris avec tes mots, en français ou en anglais.'
-                : 'No notes. Your own words, French or English.'}
-            </p>
-          </div>
-        </div>
-        {previous && (
-          <span
-            className={`text-[10px] font-semibold px-2 py-1 rounded-full shrink-0 ${
-              previous.passedCold
-                ? 'bg-emerald-100 text-emerald-800'
-                : previous.lastPassed
-                  ? 'bg-amber-100 text-amber-800'
-                  : 'bg-rose-100 text-rose-800'
-            }`}
-          >
-            {previous.passedCold
-              ? fr ? 'Réussi à froid' : 'Passed cold'
-              : previous.lastPassed
-                ? fr ? 'Réussi avec aide' : 'Passed with help'
-                : fr ? 'Pas encore' : 'Not yet'}
-          </span>
         )}
       </div>
 
-      {activeGate && (
-        <p className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 rounded-xl px-3 py-2">
-          {fr
-            ? 'Nouvelle porte : même idée, autres détails. Elle seule valide ce nœud.'
-            : 'Fresh gate: same idea, new details. Only this one counts for the node.'}
-        </p>
+      {result && attempts.length > 0 && !loading && (
+        <details className="rounded-xl border border-slate-300 bg-white p-4">
+          <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">Je pense que cette correction est fausse</summary>
+          <label htmlFor={`${fieldId}-contestation`} className="mt-3 block text-sm">Expliquez pourquoi. Le correcteur revérifie et change la note seulement si votre argument tient.</label>
+          <textarea id={`${fieldId}-contestation`} value={pushback} onChange={(event) => setPushback(event.target.value)} rows={3} maxLength={1500} className="mt-2 w-full rounded-lg border border-slate-500 p-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700" />
+          <button type="button" disabled={!pushback.trim()} onClick={contest} className="mt-2 rounded-lg border border-blue-700 px-4 py-2 font-semibold text-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 disabled:cursor-not-allowed disabled:opacity-50">Demander une nouvelle vérification</button>
+        </details>
       )}
+    </section>
+  );
+}
 
-      <p className="text-sm font-medium text-[#1d1d1f] whitespace-pre-line">
-        {activeGate ? activeGate.prompt : exercise.prompt}
-      </p>
-
-      {!passed && (
-        <div className="space-y-3">
-          <textarea
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
-            rows={compact ? 3 : 5}
-            placeholder={fr ? 'Ta réponse…' : 'Your answer…'}
-            className="w-full rounded-2xl border border-black/10 bg-white/80 p-3 text-sm text-[#1d1d1f] focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-semibold text-[#6e6e73]">
-              {fr ? 'Confiance avant de valider :' : 'Confidence before you submit:'}
-            </span>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button
-                key={n}
-                onClick={() => setConfidence(n)}
-                className={`h-7 w-7 rounded-full text-xs font-bold border transition ${
-                  confidence === n
-                    ? 'bg-indigo-600 text-white border-indigo-600'
-                    : 'bg-white/70 text-[#424245] border-black/10 hover:bg-white'
-                }`}
-                aria-pressed={confidence === n}
-              >
-                {n}
-              </button>
-            ))}
-            <button
-              onClick={submit}
-              disabled={!answer.trim() || confidence === null || loading}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-[#1d1d1f] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
-            >
-              {loading ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-              {fr ? `Corriger (essai ${attemptNumber})` : `Grade it (attempt ${attemptNumber})`}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {error && (
-        <p className="text-xs text-rose-700 bg-rose-50 rounded-xl px-3 py-2">
-          {fr ? 'Le correcteur a échoué : ' : 'The grader failed: '}
-          {error}
-        </p>
-      )}
-
-      {verdict && (
-        <div className="space-y-3 rounded-2xl bg-white/70 border border-black/5 p-4">
-          <div className="flex items-center gap-2">
-            {verdict.verdict === 'pass' ? (
-              <CheckCircle2 size={18} className="text-emerald-600" />
-            ) : verdict.verdict === 'unsure' ? (
-              <CircleDashed size={18} className="text-slate-500" />
-            ) : (
-              <AlertTriangle size={18} className="text-amber-600" />
-            )}
-            <span className="text-sm font-bold text-[#1d1d1f]">
-              {verdict.verdict === 'pass'
-                ? 'Pass'
-                : verdict.verdict === 'unsure'
-                  ? fr ? 'Je ne peux pas trancher' : 'I can’t grade this reliably'
-                  : fr ? 'Pas encore' : 'Not yet'}
-            </span>
-            {verdict.mode === 'offline' && (
-              <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 rounded-full px-2 py-0.5">
-                {fr ? 'Vérification hors ligne par mots-clés' : 'Offline keyword check'}
-              </span>
-            )}
-          </div>
-
-          {verdict.notice && <p className="text-[11px] text-amber-800">{verdict.notice}</p>}
-          {verdict.mode === 'offline' && (
-            <p className="text-[11px] text-slate-600">
-              {fr
-                ? 'Aucun modèle n’est configuré : je vérifie seulement la présence des points clés, pas ton raisonnement. Ajoute une clé Gemini pour la vraie correction.'
-                : 'No AI model is configured, so this only checks that the key points appear, not your reasoning. Add a Gemini key for real grading.'}
-            </p>
-          )}
-
-          {verdict.fluencyWarning && (
-            <p className="text-xs font-semibold text-rose-800 bg-rose-50 rounded-xl px-3 py-2">
-              {fr
-                ? `Illusion de maîtrise : confiance ${lastConfidence}/5 sur une réponse fausse. Ce point va sur ta liste de surveillance.`
-                : `Fluency-illusion warning: confidence ${lastConfidence}/5 on a wrong answer. This goes on your watch list.`}
-            </p>
-          )}
-
-          {verdict.whatYouGotRight && (
-            <Row title={fr ? 'Ce qui est juste' : 'What you got right'} text={verdict.whatYouGotRight} tone="emerald" />
-          )}
-          {verdict.brokenStep && (
-            <Row title={fr ? 'Où ça casse' : 'Where it broke'} text={verdict.brokenStep} tone="amber" />
-          )}
-          {verdict.misconception && (
-            <Row title={fr ? 'Idée fausse derrière' : 'Misconception behind it'} text={verdict.misconception} tone="amber" />
-          )}
-          {verdict.hint && rungIdx >= 0 && (
-            <div className="rounded-xl bg-indigo-50 px-3 py-2">
-              <p className="text-[11px] font-bold text-indigo-800 flex items-center gap-1">
-                <Lightbulb size={12} /> {RUNG_LABEL[lang][rungIdx]}
-              </p>
-              <p className="text-xs text-indigo-950 mt-1 whitespace-pre-line">{verdict.hint}</p>
-            </div>
-          )}
-          {verdict.walkthrough && (
-            <Row
-              title={passed ? (fr ? 'Version prête pour le jury' : 'Jury-ready version') : fr ? 'Pas à pas' : 'Walkthrough'}
-              text={verdict.walkthrough}
-              tone="slate"
-            />
-          )}
-          {verdict.probeQuestion && (
-            <Row title={fr ? 'Question pour creuser' : 'Probe question'} text={verdict.probeQuestion} tone="slate" />
-          )}
-          {verdict.juryFollowUp && (
-            <Row title={fr ? 'Relance probable du jury' : 'Likely jury follow-up'} text={verdict.juryFollowUp} tone="slate" />
-          )}
-
-          <div className="flex flex-wrap gap-2 pt-1">
-            {!passed && !verdict.freshGate && (
-              <button onClick={retry} className="inline-flex items-center gap-1 rounded-full bg-[#1d1d1f] px-3 py-1.5 text-[11px] font-semibold text-white">
-                <RotateCcw size={12} /> {fr ? 'Réessayer' : 'Try again'}
-              </button>
-            )}
-            {verdict.freshGate && (
-              <button
-                onClick={() => startFreshGate(verdict.freshGate!)}
-                className="inline-flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1.5 text-[11px] font-semibold text-white"
-              >
-                <Sparkles size={12} /> {fr ? 'Passer la nouvelle porte' : 'Take the fresh gate'}
-              </button>
-            )}
-            {verdict.mode === 'llm' && (
-              <button
-                onClick={() => setShowPushback((s) => !s)}
-                className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-[#424245] border border-black/10"
-              >
-                <Scale size={12} /> {fr ? 'Je conteste la note' : 'I disagree with the grade'}
-              </button>
-            )}
-            {canReveal && !revealed && (
-              <button
-                onClick={() => setRevealed(true)}
-                className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-[#424245] border border-black/10"
-              >
-                <Eye size={12} /> {fr ? 'Voir la réponse modèle' : 'Show model answer'}
-              </button>
-            )}
-          </div>
-
-          {showPushback && (
-            <div className="space-y-2">
-              <textarea
-                value={pushback}
-                onChange={(e) => setPushback(e.target.value)}
-                rows={3}
-                placeholder={fr ? 'Pourquoi la note est fausse, preuve à l’appui…' : 'Why the grade is wrong, with evidence…'}
-                className="w-full rounded-2xl border border-black/10 bg-white p-3 text-xs"
-              />
-              <button
-                onClick={sendPushback}
-                disabled={!pushback.trim() || loading}
-                className="inline-flex items-center gap-1 rounded-full bg-[#1d1d1f] px-3 py-1.5 text-[11px] font-semibold text-white disabled:opacity-40"
-              >
-                <MessageSquareWarning size={12} /> {fr ? 'Demander une re-vérification' : 'Ask for a recheck'}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {!canReveal && attempts.length > 0 && !passed && (
-        <p className="text-[11px] text-[#86868b]">
-          {fr
-            ? `La réponse modèle reste cachée jusqu’à la réussite ou au 4e essai (${attempts.length}/4).`
-            : `The model answer stays hidden until you pass or reach attempt 4 (${attempts.length}/4).`}
-        </p>
-      )}
-
-      {revealed && (
-        <div className="space-y-2 rounded-2xl bg-emerald-50/70 border border-emerald-200/60 p-4">
-          <p className="text-[11px] font-bold text-emerald-900">{fr ? 'Réponse modèle' : 'Model answer'}</p>
-          <p className="text-xs text-emerald-950 whitespace-pre-line">
-            {activeGate ? activeGate.modelAnswer : exercise.modelAnswer}
-          </p>
-          {!activeGate && exercise.juryVersionFr && (
-            <>
-              <p className="text-[11px] font-bold text-emerald-900 pt-1">À dire au jury</p>
-              <p className="text-xs text-emerald-950 italic whitespace-pre-line">{exercise.juryVersionFr}</p>
-            </>
-          )}
-          {!activeGate && exercise.source && (
-            <p className="text-[10px] text-emerald-800 font-mono">{fr ? 'Source : ' : 'Source: '}{exercise.source}</p>
-          )}
-          {!passed && (
-            <p className="text-[11px] text-emerald-900">
-              {fr
-                ? 'Tu as vu la réponse : ce nœud ne compte qu’après une nouvelle porte réussie. Reviens-y plus tard, à froid.'
-                : 'You have seen the answer, so this node only counts after you pass a fresh gate. Come back to it later, cold.'}
-            </p>
-          )}
-        </div>
-      )}
+function Block({ title, children }: { title: string; children: string }) {
+  return (
+    <div>
+      <h3 className="font-semibold">{title}</h3>
+      <p className="whitespace-pre-line">{children}</p>
     </div>
   );
-};
-
-const TONES = {
-  emerald: 'text-emerald-900',
-  amber: 'text-amber-900',
-  slate: 'text-[#1d1d1f]',
-};
-
-const Row: React.FC<{ title: string; text: string; tone: keyof typeof TONES }> = ({ title, text, tone }) => (
-  <div>
-    <p className={`text-[11px] font-bold ${TONES[tone]}`}>{title}</p>
-    <p className="text-xs text-[#424245] mt-0.5 whitespace-pre-line">{text}</p>
-  </div>
-);
+}

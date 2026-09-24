@@ -1,71 +1,15 @@
 @import "tailwindcss";
 
 @layer base {
-  :root {
-    --apple-bg: #f5f5f7;
-    --apple-card: rgba(255, 255, 255, 0.78);
-    --apple-card-hover: rgba(255, 255, 255, 0.92);
-    --apple-text: #1d1d1f;
-    --apple-secondary: #6e6e73;
-    --apple-border: rgba(220, 220, 226, 0.7);
-    --apple-glass-border: rgba(255, 255, 255, 0.85);
-    --apple-accent: #0071e3;
-  }
-
   body {
-    background-color: var(--apple-bg);
-    color: var(--apple-text);
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Plus Jakarta Sans", -apple-system, sans-serif;
-    letter-spacing: -0.011em;
     margin: 0;
-    padding: 0;
-    overflow-x: hidden;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  h1, h2, h3, h4 {
-    letter-spacing: -0.025em;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   }
 }
 
-/* Apple Liquid Glass Utility Classes */
+/* Defense Path cards (src/components/DefensePathView.tsx) */
 .liquid-glass {
-  background: rgba(255, 255, 255, 0.76);
-  backdrop-filter: blur(25px) saturate(190%);
-  -webkit-backdrop-filter: blur(25px) saturate(190%);
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.05), 0 2px 10px -2px rgba(0, 0, 0, 0.02);
-}
-
-.liquid-glass-subtle {
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.7);
-}
-
-.liquid-pill {
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.95);
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
-}
-
-/* Minimal iOS Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.12);
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.22);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
