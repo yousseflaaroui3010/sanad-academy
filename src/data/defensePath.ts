@@ -1683,21 +1683,32 @@ Why say all this yourself? If the jury finds a weakness you hid, they doubt ever
     slides: [20],
     oneLiner: 'Who can see what, and how a hostile user or a hostile document is contained.',
     needs: 'Node 4 (workspaces, one collection each).',
-    explain: `Slide 20 (annex A) has seven risks, each with its protection.
+    glossary: [
+      { term: "Authentication (login)", plain: "Proving WHO you are.", example: "Typing your username and password." },
+      { term: "Authorisation", plain: "Checking what you are ALLOWED to do once logged in.", example: "You are logged in, but you may not open a colleague's private workspace." },
+      { term: "Keycloak / OIDC", plain: "Keycloak is a separate login service. OIDC (OpenID Connect) is the standard way apps say \"please log this person in\" to such a service.", example: "Like \"Sign in with Google\", but with the company's own login server." },
+      { term: "Session / cookie", plain: "After login, the browser keeps a small ticket (cookie) so you don't log in on every page. SANAD stores only a scrambled (hashed) copy of the ticket, valid 12 hours.", example: "A wristband at a festival: you show it instead of your ticket each time." },
+      { term: "Path traversal", plain: "A trick where an attacker types a file name like ../../secret to escape the allowed folder.", example: "SANAD only accepts names made of letters, digits, - and _, so ../ is rejected." },
+      { term: "Rate limit", plain: "A maximum number of actions per person per time period, to stop abuse.", example: "20 questions per 10 minutes per person." },
+      { term: "Injection (HTML / link)", plain: "Hiding code or a link inside text so it becomes clickable or runs in the page.", example: "A PDF contains a phishing link; the AI copies it. SANAD shows it as plain text, not a link." },
+      { term: "Enumeration", plain: "Guessing names or IDs one by one to discover what exists.", example: "Trying workspace 1, 2, 3… to see which ones exist." },
+    ],
+    story: "Think of a hotel.\n\n• You get a room key only after showing ID at reception (Keycloak login).\n• Your key opens only your room; the door checks it every single time (owner check at each access).\n• If you ask reception \"is Mr X in room 12?\", they give the same answer whether he is or not (same reply for \"doesn't exist\" and \"forbidden\").\n• Room numbers follow a strict format; you can't write \"basement/../safe\" on a form (ID check against path traversal).\n• You can't order 500 room-service meals in a minute (rate limits).\n• A note slipped under your door is read, never executed (AI text shown without links or HTML).\n• Staff never write guests' passwords in the logbook (no secrets in logs).",
+    explain: `Slide 20 (annex A) lists 7 risks and 7 protections. In plain words:
 
-1. Access without an account. With AUTH_MODE=keycloak, you sign in through Keycloak (OpenID Connect). Without a valid session you are sent to the login page. SANAD then keeps its own session cookie, HttpOnly and SameSite=Lax, stored server-side only as a SHA-256 hash, valid 12 hours.
-2. Reading someone else's workspace. The owner is checked at every access. An unknown workspace and a forbidden one get the SAME answer, so an attacker cannot even learn that a workspace exists.
-3. Opening someone else's source. A source link only opens from the conversation that received it.
-4. A trapped file path. Identifiers must match letters, digits, dash and underscore only (^[A-Za-z0-9_-]+$), so "../../etc/passwd" is rejected (no path traversal).
-5. Abuse. Rate limits apply per person (e.g. 20 questions per 10 minutes, 20 syncs per hour) in keycloak mode.
-6. Content injected into an answer. The model's text is rendered with HTML, links and images disabled, so a document containing <script> or a phishing link cannot become clickable in an answer.
-7. Leaks through logs. No keys, passwords or request bodies are logged (secrets are redacted).
+1. Using SANAD without an account → Login through Keycloak. With no valid session you're sent to the login page. Then SANAD gives your browser its own session ticket (cookie), stores only a scrambled copy of it, and it expires after 12 hours.
+2. Reading someone else's workspace → The owner is checked at EVERY access, on the server. A workspace that doesn't exist and one you're not allowed to see get the SAME answer, so an attacker can't even learn that it exists.
+3. Opening someone else's source → A source link only opens from the conversation that received it.
+4. A trick file path (like ../../etc/passwd) → IDs may only contain letters, digits, dash and underscore.
+5. Abuse → Limits per person, e.g. 20 questions per 10 minutes, 20 Syncs per hour.
+6. Dangerous content in an answer → The AI's text is shown with HTML, links and images turned off. A malicious link inside a document can't become clickable.
+7. Leaks through logs → No keys, passwords or request contents are written in the logs.
 
-Also: uploads are capped at 50 MB, and security headers are sent (X-Frame-Options DENY, nosniff…).
+Also: uploads are limited to 50 MB, and security headers stop the site being embedded in another site.
 
-Other modes: by default (AUTH_MODE=none) the server listens only on 127.0.0.1, meaning the same machine. ACCESS_PASSWORD adds a simple password gate (HTTP Basic). The Docker entrypoint only WARNS if the app is exposed publicly without a password.
+Other modes: by default (no accounts), SANAD only accepts connections from the same computer (127.0.0.1). An optional simple password (ACCESS_PASSWORD) can protect it. The Docker start script only WARNS if the app is exposed without a password.
 
-Know the honest gaps (docs/known-issues.md): roles were removed in v3.1 (everyone signed in is equal, workspaces are owned or shared); the OIDC nonce isn't checked; there's no CSP header or CSRF token (SameSite=Lax is the CSRF defence); a user deleted in Keycloak stays signed in until their 12 h session ends. Personal data under Moroccan law 09-08 would need a review before cloud use. The demo corpus is public on purpose.`,
+Honest gaps to know: roles (admin, reader…) were removed in v3.1, so everyone logged in is equal and workspaces are either owned or shared. A few login checks are missing (the "nonce" check, a CSP header). A user deleted in Keycloak stays logged in until their 12 hours end. For real personal data under Moroccan law 09-08, a legal review would be needed first. The demo uses only public texts on purpose.`,
     example: {
       title: 'An attacker edits a URL',
       steps: [
@@ -1775,22 +1786,33 @@ Know the honest gaps (docs/known-issues.md): roles were removed in v3.1 (everyon
     slides: [6],
     oneLiner: 'Eight sprints, one branch per task, nothing merged without green tests and the other’s review.',
     needs: 'Nothing technical; knowing the product (Stage 1) helps.',
-    explain: `The method: Scrum adapted to two people, chosen over waterfall because of the short deadline and high uncertainty (report p.23).
+    glossary: [
+      { term: "Scrum", plain: "A way of organising teamwork in short cycles, with regular check-ins and a list of tasks. SANAD used it adapted for 2 people.", example: "Every Saturday: what's done, what's blocked, what's next." },
+      { term: "Sprint", plain: "One short work cycle with a clear goal.", example: "Sprint S1 (28 Jul–29 Aug): the ingestion part." },
+      { term: "User story (ST-xx)", plain: "One task described from the user's point of view, with conditions to call it done. SANAD had ST-01 to ST-55.", example: "ST-17: the Sync engine." },
+      { term: "Git / branch", plain: "Git records every version of the code. A branch is a separate copy where you work on one task without disturbing the main version.", example: "Branch feat/S1-ST-17-sync-engine for the Sync engine." },
+      { term: "Pull request (PR) / merge", plain: "A request to add a branch's changes into the main version. Merge = accept and add them.", example: "146 pull requests were merged." },
+      { term: "CI (Continuous Integration)", plain: "Automatic checks that run on every pull request: tests, style checks, a secret scan.", example: "If a test fails, GitHub blocks the merge." },
+      { term: "Code review", plain: "The other person reads and tests your change before it's accepted.", example: "Youssef reviews Meriem's Sync engine; Meriem reviews Youssef's agent." },
+      { term: "Automated test", plain: "A small program that checks another part of the program works. SANAD: about 1,400 of them.", example: "A test that fails if a passage is embedded without its \"passage: \" tag." },
+    ],
+    story: "Two cooks run a restaurant kitchen.\n\nEvery Saturday they meet 10 minutes: what's done, what's stuck, what's next. Each dish is prepared on its own station so they don't bump into each other (one branch per task). No plate leaves the kitchen until the automatic thermometer says OK (CI tests) AND the other cook has tasted it (review).\n\nMeriem mostly handles everything from the delivery door to the fridge (documents in, index, exam). Youssef mostly handles everything from the order to the plate (question → answer, figures, login, hosting).",
+    explain: `Method: Scrum adapted to 2 people. They chose it over "waterfall" (plan everything, then build everything) because the deadline was short and a lot was uncertain.
 
-Rhythm and rules (slide 6):
-1. Every Saturday, a meeting: what is done, what is blocked, what's next.
-2. Every task on its own branch (e.g. feat/S1-ST-17-sync-engine), announced on GitHub, so two people never edit the same file at the same time.
-3. Every change runs automatic tests (pytest, the ruff linter, a secret scan in CI), then is reviewed by the other person. The main branch is protected: 1 approving review, the required check green, no force-push.
+Three work rules (slide 6):
+1. Every Saturday, a meeting: what's finished, what's blocked, what's next.
+2. Every task on its own git branch, announced on GitHub, so the two never edit the same file at the same time.
+3. Every change goes through automatic checks (CI: tests, style check, secret scan), then the other person reviews and tests it. The main branch is locked: it needs 1 approval and green checks, and nobody can rewrite its history.
 
-Numbers: 8 sprints (S0–S7) from 20 July to 19 September. Their lengths were very uneven: S1, ingestion, took about a month; S4, S5 and S7 lasted a day each. 146 merged pull requests, 1,409 automated tests according to the report (the v3.1.0 release notes record 1,372 passing plus 2 skipped and 1 expected failure), and 5 releases between 12 and 19 September. User stories ST-01 to ST-55. Decisions were logged ADR-style in docs/journal/DECISIONS.md.
+In numbers: 8 sprints (S0 to S7) from 20 July to 19 September. The sprints had very different lengths: S1 took about a month, S4, S5 and S7 took one day each. 146 merged pull requests. About 1,400 automated tests (the report says 1,409). 5 published versions. Tasks ST-01 to ST-55. Decisions were written down in docs/journal/DECISIONS.md.
 
-The Definition of Done had 4 criteria: acceptance criteria met, tests green locally and in CI, the peer's approval, and the owner can explain the change aloud in one minute.
+"Done" meant 4 things: the conditions are met, tests are green on the laptop and in CI, the other person approved, and the owner can explain the change out loud in one minute.
 
-Who did what (report Table 1.6). The roles were planned as build lead (Youssef) and research & quality lead (Meriem) and mixed in practice.
-• Meriem: stores and safe write order, SQLite schema, workspaces, API/OpenAPI, change detection, converters, chunking, the Sync engine, memory, the corpus, the 60 questions, the evaluation engine, judge and gate, the full UI rewrite, right-to-left, first hosting.
-• Youssef: the agent graph, the LLM modes, structure/config/Docker, embeddings, figure extraction, hybrid search, the grader, answer/refusal, clarification, translations, dashboard, login, rate limits, final hosting.
+Who did what (report Table 1.6). Planned: Youssef = build lead, Meriem = research & quality lead. In practice it mixed:
+• Meriem: storage and safe write order, database design, workspaces, the API, change detection, conversion, chunking, the Sync engine, memory, the 60 exam questions, the judge and the gate, the full screen redesign including Arabic right-to-left, first hosting.
+• Youssef: the 9-step agent, cloud/local AI modes, project structure and Docker, the vector models, figures, hybrid search, the grader, answer and refusal, clarification, translations, the dashboard, login, rate limits, final hosting.
 
-A likely question: "How did you use AI tools?" Answer truthfully and consistently with each other. Say what you used, for what, and how you verified it: the tests, the review and the evaluation gate. The report's lesson "a test that never failed proves nothing" (they broke code on purpose to check tests catch it) is your strongest evidence that you controlled the output.`,
+Likely jury question: "How did you use AI tools?" Answer truthfully, and the same way as each other. Say what you used, for what, and how you checked it: tests, review, the exam gate, and breaking the code on purpose to prove the tests can catch problems.`,
     example: {
       title: 'The life of one story',
       steps: [
@@ -1850,20 +1872,33 @@ A likely question: "How did you use AI tools?" Answer truthfully and consistentl
     slides: [8, 13],
     oneLiner: 'One command locally; a two-stage Docker image; Railway rebuilding from GitHub main with a persistent volume.',
     needs: 'Node 4.',
-    explain: `Locally: install with uv (a fast Python package manager with a frozen lockfile, uv.lock) and run the app. It listens on 127.0.0.1:8000 by default. MODEL_MODE=cloud needs CLOUD_API_KEY (Gemini). MODEL_MODE=local uses Ollama at localhost:11434.
+    glossary: [
+      { term: "Deploy / hosting", plain: "Putting the app on a server on the internet so others can use it.", example: "The online demo of SANAD runs on Railway." },
+      { term: "Railway", plain: "A cloud service that runs your app for you. You give it your code (from GitHub or uploaded), it builds and runs it.", example: "Like renting a furnished apartment for your app." },
+      { term: "Docker / image / container", plain: "Docker packs the app with everything it needs into an \"image\" (a sealed box). A \"container\" is a running copy of that box.", example: "Image = a frozen meal; container = the meal heated and served." },
+      { term: "Dockerfile (two stages)", plain: "The recipe that builds the image. Stage 1 prepares everything (heavy tools); stage 2 keeps only what's needed to run, so the final box is smaller.", example: "Cook in a big kitchen, then pack only the finished dish." },
+      { term: "uv / lockfile", plain: "uv installs Python libraries. The lockfile (uv.lock) lists the exact versions, so every computer installs the same thing.", example: "A recipe with exact brands and grams instead of \"some flour\"." },
+      { term: "CPU vs GPU / PyTorch", plain: "CPU = the normal processor. GPU = a graphics card, great for AI but not available here. PyTorch is the library E5 needs; SANAD installs the small CPU-only version.", example: "Why pack a 4 kg charger for a laptop that has no socket for it?" },
+      { term: "Volume", plain: "A disk attached to the container that is KEPT when the container is replaced. SANAD's data/ folder lives there.", example: "The container is a hotel room you change every week; the volume is your locked suitcase that follows you." },
+      { term: "Health check", plain: "A small address Railway calls to check the app is alive: /api/v1/health.", example: "A nurse checking your pulse every few minutes." },
+      { term: "Environment variable", plain: "A setting given to the app from outside the code, like a key or a mode.", example: "MODEL_MODE=local, CLOUD_API_KEY=…" },
+    ],
+    story: "Think of a food truck.\n\nThe recipe book (Dockerfile) says exactly how to prepare the truck: which ingredients and which exact brands (uv lockfile), and no heavy equipment you'll never use (no GPU parts). The cooking is done at the central kitchen, and only the ready dishes go in the truck (two-stage build).\n\nEvery morning a new truck may replace yesterday's (redeploy). Anything left inside the old truck is gone. So the important things, the stock and the customer notebook, live in a locked box that is moved from truck to truck (the volume /app/data).\n\nAn inspector knocks on the window every few minutes: \"still open?\" (health check).",
+    explain: `Three ways to run SANAD.
 
-The Docker image is built in two stages.
-• Builder: python:3.12 slim plus uv 0.8.7. It installs the exact locked dependencies but swaps in the CPU-only build of PyTorch. The GPU/CUDA packages weigh gigabytes and there is no GPU, so the build even fails on purpose if that filter matches nothing. It also downloads the E5 and BM25 model weights INTO the image, so the container doesn't download them at boot.
-• Runtime: a slim image that runs as a non-root user (sanad, uid 10001), with a health check on /api/v1/health.
+1. On a laptop. Install with uv (it installs the exact versions listed in uv.lock) and start the app. It answers at 127.0.0.1:8000. Cloud mode needs a Gemini key (CLOUD_API_KEY). Local mode needs Ollama running on the laptop.
 
-The entrypoint script maps Railway's PORT variable to SERVER_PORT and listens on 0.0.0.0. It warns loudly if the app is public without ACCESS_PASSWORD, drops root privileges, and on the first boot copies the demo corpus into the data volume.
+2. With Docker. The Dockerfile builds a box ("image") in 2 stages:
+• Stage 1 (builder): installs the exact locked libraries, but swaps PyTorch for its CPU-only version, because the GPU version weighs several gigabytes and there's no graphics card. The build even stops on purpose if that swap didn't happen. It also downloads the E5 and BM25 models INTO the image, so the app never downloads them when it starts.
+• Stage 2 (runtime): a smaller box that runs as a normal user (not administrator), with a health check.
+The start script adapts the port to Railway, warns loudly if the app is public without a password, and on the very first start copies the demo documents into the data folder.
 
-Railway, based on the repo's journal:
-• The web service sanad-web deploys from GitHub main (BUILD-STATE.md: "from GitHub main, volume on /app/data"). So a merge to main triggers a rebuild of the Dockerfile. railway.json in the repo sets the Dockerfile builder, the health check (/api/v1/health, 300 s timeout) and restart-on-failure up to 10 times, but known-issues.md notes Railway uses the service's own dashboard settings for sanad-web.
-• The keycloak service is NOT linked to GitHub: it was uploaded by hand with "railway up" from deploy/keycloak/ and backed by a Railway Postgres. That is probably the "deployed as code, not from GitHub" you remember.
-• The volume on /app/data is what keeps SQLite, Qdrant, parents, figures and reports when the container restarts. A container's own disk is thrown away on every redeploy.
+3. On Railway (the online demo). According to the project's own notes:
+• The web service ("sanad-web") is rebuilt from GitHub's main branch, and has a volume mounted on /app/data.
+• The login service (Keycloak) was uploaded by hand with "railway up" and uses a Railway database.
+• The volume is what keeps the database, the index, the sections and the figures when the app restarts. Without it, every update would erase everything and all documents would need a new Sync.
 
-Honesty point: Railway is a cloud host. The online demo is for convenience on a public corpus. For real documents, the plan is to install on the organisation's machine and use local mode.`,
+Honesty point: Railway is the cloud. The online demo exists for convenience, with public documents only. For real company documents, the plan is to install SANAD on the company's own machine and use local mode.`,
     diagram: `flowchart LR
   GH["GitHub main"] -- "push / merge" --> RB["Railway: build Dockerfile"]
   RB --> C["Container sanad-web, non-root"]
@@ -1949,19 +1984,31 @@ Honesty point: Railway is a cloud host. The online demo is for convenience on a 
     slides: [22, 23, 24],
     oneLiner: 'The flat layout, the data model, the classes, and the "ports" that let tests run without a real LLM.',
     needs: 'Stages 2 and 3.',
-    explain: `The layout is flat: the ingestion modules sit at the top level, and the question pipeline is in agent/.
+    glossary: [
+      { term: "Module / file", plain: "One Python file that does one job.", example: "chunking.py cuts text into parents and children." },
+      { term: "Function / class", plain: "A function is a named action in the code; a class is a template for objects (like \"Answer\").", example: "The function ask() runs one question; the class Answer holds text + sources + trace." },
+      { term: "Port (in agent/ports.py)", plain: "A \"socket\" where the agent plugs in a tool (the AI, the search…). The agent uses the socket, without knowing which exact tool is plugged in.", example: "In production: plug in Gemini. In tests: plug in a fake AI that gives scripted answers." },
+      { term: "Dependency injection", plain: "Giving a part of the program the tools it needs from the outside, instead of letting it create them itself. Ports make this possible.", example: "build_graph(ports): the graph receives its 8 tools as a package." },
+      { term: "Fake / test double", plain: "A pretend version of a tool used in tests. SANAD's ScriptedChat pretends to be the AI.", example: "It always answers RELEVANT for test 12, so the test checks the routing, not Gemini's mood." },
+      { term: "API / OpenAPI", plain: "API = a way for other programs to use SANAD without the screens (under /api/v1). OpenAPI = a written contract describing it; tests fail if the code drifts from it.", example: "Another app could send a question to /api/v1/workspaces/{id}/ask and get JSON back." },
+      { term: "Table / foreign key / cascade", plain: "Tables are like linked Excel sheets. A foreign key links a row to another table. Cascade = deleting a workspace automatically deletes its linked rows.", example: "Delete workspace RH → its documents, syncs, exams and conversations rows disappear too." },
+    ],
+    story: "Picture a kitchen appliance with standard sockets.\n\nThe appliance (the agent) doesn't care which blender brand is plugged in, as long as it fits the socket (the port). In the real kitchen you plug in the expensive blender (Gemini, Qdrant). In the training kitchen you plug in a toy blender that always does the same thing (the fake AI). So apprentices can test the appliance 1,400 times a day without paying for blenders.\n\nThe rule: there is NO default blender inside the appliance. If there were a toy one built in, someone might ship the appliance to a customer with the toy still inside, making nice noises but blending nothing. That's the danger: a fake AI that answers plausibly in production.",
+    explain: `The code follows the two journeys you already know.
 
-Journey 1 (a document): change_detection.py (SHA-256, statuses) → conversion.py (text) → chunking.py (parents/children) → embeddings.py (E5 + BM25) → vector_store.py (Qdrant, one collection per workspace, named ws_<id>_children) and parent_store.py (parent JSON) → sync.py orchestrates it all, with recovery.py and watcher.py around it. figures.py handles the images.
+Journey 1, a document (files at the top level):
+change_detection.py (fingerprints) → conversion.py (to text) → chunking.py (parents and children) → embeddings.py (E5 + BM25) → vector_store.py (Qdrant, one collection per workspace) and parent_store.py (section files). sync.py runs this whole chain. recovery.py repairs an unfinished Sync at startup, watcher.py can watch folders, and figures.py handles pictures.
 
-Journey 2 (a question): agent/graph.py (build_graph, ask) → agent/nodes.py (the nine nodes and routers). The real work sits behind ports: agent/querying.py (planner), retrieval.py, grading.py (grader, reword), answering.py (writer, streaming), summarizing.py, stores.py (parent texts), chat.py (build the Gemini/Ollama model), prompts.py (loads prompts/<id>/PROMPT.md, versioned).
+Journey 2, a question (folder agent/):
+graph.py (the 9-step flowchart, and ask() = the only place an answer is created) → nodes.py (each step and the arrows between them). The real work sits behind "ports": querying.py (planner), retrieval.py (search), grading.py (grader, reword), answering.py (writer, streaming), summarizing.py (memory), chat.py (connects to Gemini or Ollama), prompts.py (loads the instruction files in prompts/).
 
-The ports (agent/ports.py): AgentPorts bundles 8 required functions (summarize, clarify, rewrite, retrieve, grade, reword, fetch_parents, write_answer) with NO defaults. build_graph(ports) receives them. In production, ui/ports.py (the single "composition root") plugs in the real Gemini/Qdrant versions. In tests, fakes are plugged in (tests/fake_chat.py ScriptedChat, fake encoders), so about 1,400 tests run without any API key. There is deliberately no default: "a stub that answers plausibly is the most dangerous object in this project".
+The ports (agent/ports.py): 8 tools the agent needs (summarize, clarify, rewrite, retrieve, grade, reword, fetch_parents, write_answer), with NO default. In production, ui/ports.py plugs in the real ones. In tests, fakes are plugged in, so about 1,400 tests run fast, the same way every time, and without any API key. No default on purpose: a built-in fake that answers plausibly could slip into production.
 
-The host: app.py (about 2,900 lines) is the FastAPI app: pages, /chat/ask, auth routes, model warm-up. api/routes.py holds the /api/v1 JSON API (12 operations, signed OpenAPI contract, drift tests). ui/ holds screens, i18n (fr/ar/en), auth, rate limits.
+The host: app.py (about 2,900 lines) is the web app with the pages, the login routes and the question route. api/routes.py is the /api/v1 API (12 operations, with a written contract checked by tests). ui/ holds the screens, the translations (fr/ar/en), login and rate limits.
 
-Data (annex D, db/schema.sql): workspace (with owner_user_id, where NULL means shared) → document (content_hash, status) → sync_run → sync_item (one row per file). Also eval_run → eval_result, answer_feedback, app_user, user_session (hashed token), and conversation (JSON payload per user and workspace).
+Data (annex D, db/schema.sql): workspace → document → sync_run → sync_item (one row per file). Also eval_run → eval_result, answer_feedback, app_user, user_session, and conversation.
 
-Classes (annex E): ChunkedDocument, Parent, Child, SearchHit, and Answer (kind, text, sources, trace, disclaimer), which is frozen and raises without sources, plus the Sync report rows.`,
+Classes (annex E): ChunkedDocument, Parent, Child, SearchHit, and Answer. Answer holds the kind, text, sources, trace and disclaimer; it can't be changed after creation and can't exist without sources.`,
     diagram: `erDiagram
   WORKSPACE ||--o{ DOCUMENT : contains
   WORKSPACE ||--o{ SYNC_RUN : has
@@ -2032,22 +2079,29 @@ Classes (annex E): ChunkedDocument, Parent, Child, SearchHit, and Answer (kind, 
     slides: [],
     oneLiner: 'The questions most likely to hurt, from every part of the project. Answer each cold, then compare.',
     needs: 'All previous nodes.',
-    explain: `This node has no new idea. It mixes questions from every stage, the way a jury does.
+    glossary: [
+      { term: "Mock jury (jury blanc)", plain: "A practice defense with questions like the real jury's, answered without notes.", example: "One of you asks, the other answers in 45 seconds, then you swap." },
+      { term: "Answer first", plain: "Put the direct answer in your first sentence, then explain.", example: "\"No, we don't have a reranker. Here's why…\"" },
+      { term: "Reranker", plain: "An extra AI step that re-reads the question with each passage found and re-orders them. SANAD doesn't have one; the grader plays a yes/no version of that role.", example: "A second librarian who re-sorts the 5 books before you read them." },
+      { term: "Consistency", plain: "Both of you giving the same facts. The jury may ask you separately.", example: "Both say \"8.3 seconds median\", not one \"8 s\" and the other \"10 s average\"." },
+    ],
+    story: "In a defense, the jury is not trying to trap you. They are checking that you understand what you built and what you measured.\n\nThink of each question as a short delivery: hand over the answer first, show one proof (a number, a file, an example), mention the weak spot yourself with its fix, then stop talking. The last sentence you say is often the next question they ask, so end on something you can defend.",
+    explain: `This lesson has no new idea. It mixes questions from every lesson, the way a real jury does.
 
 How to answer any jury question in about 45 seconds:
-1. Answer the question directly in the first sentence.
+1. Answer directly in the first sentence.
 2. Give ONE concrete fact: a number, a file, an example.
-3. If there is a weakness, name it yourself and give the planned fix.
-4. Stop. Don't open a new topic the jury didn't ask about.
+3. If there's a weakness, name it yourself and give the planned fix.
+4. Stop. Don't open a new topic nobody asked about.
 
-The traps to watch:
-• "Local": all measurements are in cloud mode, and the online demo runs on Railway.
-• "Median" vs "moyenne" (8.3 s).
+Traps to watch for:
+• "Local": all measurements were done in cloud mode (Gemini), and the online demo runs on Railway.
+• 8.3 s is a MEDIAN, not "en moyenne".
 • "100/100" = 20 questions × 5 versions.
-• "Article entier": it is the whole SECTION, 2,000–4,000 characters.
-• RAGAS: it was replaced by an in-house judge.
-• 589 vs 588 articles: the report has both. Say "environ 589 articles, 7 livres".
-• AI tools: answer truthfully, and the same way as your partner.`,
+• "L'article entier": it's the whole SECTION (2,000–4,000 characters).
+• RAGAS: replaced by a home-made judge.
+• 589 vs 588 articles: the report contains both. Say "environ 589 articles, 7 livres".
+• AI tools: answer truthfully, and the same way as each other.`,
     example: {
       title: 'The 4-step answer on "Why not a reranker?"',
       steps: [
