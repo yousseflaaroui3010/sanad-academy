@@ -515,7 +515,7 @@ export const SlideDeck: React.FC<SlideDeckProps> = ({
       render: () => (
         <div className="max-w-2xl mx-auto w-full py-4">
           {subLesson.miniQuiz ? (
-            <MicroQuiz quiz={subLesson.miniQuiz} lang={lang} />
+            <MicroQuiz key={subLesson.id} quiz={subLesson.miniQuiz} lang={lang} subLessonId={subLesson.id} />
           ) : (
             <div className="text-center py-10 space-y-2 text-[#86868b]">
               <CheckCircle2 size={32} className="mx-auto text-emerald-500" />

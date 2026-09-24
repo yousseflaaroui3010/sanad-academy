@@ -31,7 +31,88 @@ const MIME_TYPES = {
   '.map': 'application/json',
 };
 
+// Answer coach: proxies grading requests to Gemini so the API key stays on the server.
+// Set GEMINI_API_KEY (and optionally GEMINI_MODEL) in the Railway service variables.
+// gemini-3.6-flash is the model RAG_project_ENSA pins (gemini-2.0-flash was retired on 27 Aug 2026).
+const COACH_MODELS = [process.env.GEMINI_MODEL, 'gemini-3.6-flash', 'gemini-2.5-flash'].filter(Boolean);
+const COACH_MAX_BODY = 64 * 1024;
+
+function handleCoach(req, res) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    res.writeHead(503, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'coach_not_configured' }));
+    return;
+  }
+
+  let size = 0;
+  const chunks = [];
+  req.on('data', (chunk) => {
+    size += chunk.length;
+    if (size > COACH_MAX_BODY) {
+      res.writeHead(413, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'payload_too_large' }));
+      req.destroy();
+      return;
+    }
+    chunks.push(chunk);
+  });
+  req.on('end', async () => {
+    if (res.writableEnded) return;
+    let payload;
+    try {
+      payload = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    } catch {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'invalid_json' }));
+      return;
+    }
+    if (typeof payload.system !== 'string' || typeof payload.user !== 'string') {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'missing_fields' }));
+      return;
+    }
+
+    const body = JSON.stringify({
+      systemInstruction: { parts: [{ text: payload.system }] },
+      contents: [{ role: 'user', parts: [{ text: payload.user }] }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 2048, responseMimeType: 'application/json' },
+    });
+
+    let lastError = 'unknown';
+    for (const model of COACH_MODELS) {
+      try {
+        const upstream = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey }, body }
+        );
+        if (upstream.ok) {
+          const data = await upstream.json();
+          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) {
+            res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+            res.end(JSON.stringify({ text }));
+            return;
+          }
+          lastError = 'empty_response';
+        } else {
+          lastError = `upstream_${upstream.status}`;
+        }
+      } catch (e) {
+        lastError = e?.message || 'network_error';
+      }
+    }
+    res.writeHead(502, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: lastError }));
+  });
+}
+
 const server = http.createServer((req, res) => {
+  if (req.method === 'POST' && req.url.split('?')[0] === '/api/coach') {
+    handleCoach(req, res);
+    return;
+  }
+
   // Normalize URL path
   let reqPath = decodeURIComponent(req.url.split('?')[0]);
   if (reqPath === '/') reqPath = '/index.html';

@@ -542,7 +542,7 @@ export const LessonView: React.FC<LessonViewProps> = ({
 
           {/* ❓ 7. 1-Click Knowledge Check Micro-Quiz */}
           {subLesson.miniQuiz && (
-            <MicroQuiz quiz={subLesson.miniQuiz} lang={lang} />
+            <MicroQuiz key={subLesson.id} quiz={subLesson.miniQuiz} lang={lang} subLessonId={subLesson.id} />
           )}
 
           {/* 🎯 8. Golden Rule & Codebase Mastery */}

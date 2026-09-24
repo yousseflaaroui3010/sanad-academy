@@ -9,6 +9,8 @@ import { DefenseCertificateModal } from './components/DefenseCertificateModal';
 import { SpotlightSearchModal } from './components/SpotlightSearchModal';
 import { ArchitectureSandbox } from './components/sandbox/ArchitectureSandbox';
 import { RebuildStagesView } from './components/RebuildStagesView';
+import { DefensePathView } from './components/DefensePathView';
+import { VerificationBanner } from './components/VerificationBanner';
 
 export function App() {
   const allSubLessonsWithParents = COURSE_TRACKS.flatMap((track) =>
@@ -45,7 +47,7 @@ export function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCertificateOpen, setIsCertificateOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [currentTab, setCurrentTab] = useState<'curriculum' | 'rebuild' | 'sandbox'>('rebuild');
+  const [currentTab, setCurrentTab] = useState<'path' | 'curriculum' | 'rebuild' | 'sandbox'>('path');
   const [lang, setLang] = useState<'en' | 'fr'>(() => {
     try {
       return (localStorage.getItem('sanad_lang') as 'en' | 'fr') || 'en';
@@ -193,8 +195,40 @@ export function App() {
         <DefenseCertificateModal onClose={() => setIsCertificateOpen(false)} />
       )}
 
+      {/* Mobile tab strip (the navbar switcher is hidden below the sm breakpoint) */}
+      <div className="sm:hidden flex gap-2 overflow-x-auto px-4 pt-3">
+        {(
+          [
+            ['path', lang === 'fr' ? 'Parcours soutenance' : 'Defense Path'],
+            ['curriculum', lang === 'fr' ? 'Cours' : 'Curriculum'],
+            ['rebuild', lang === 'fr' ? 'Reconstruction' : 'Rebuild'],
+            ['sandbox', 'Sandbox'],
+          ] as const
+        ).map(([tab, label]) => (
+          <button
+            key={tab}
+            onClick={() => setCurrentTab(tab)}
+            className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold border ${
+              currentTab === tab ? 'bg-[#1d1d1f] text-white border-[#1d1d1f]' : 'bg-white/70 text-[#424245] border-black/10'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {currentTab !== 'path' && (
+        <div className="px-4 sm:px-8 pt-3">
+          <VerificationBanner lang={lang} onOpenPath={() => setCurrentTab('path')} />
+        </div>
+      )}
+
       {/* Main Workspace Layout */}
-      {currentTab === 'sandbox' ? (
+      {currentTab === 'path' ? (
+        <div className="flex-1 w-full px-4 sm:px-8 py-4">
+          <DefensePathView lang={lang} />
+        </div>
+      ) : currentTab === 'sandbox' ? (
         <div className="flex-1 w-full px-4 sm:px-8 py-4">
           <ArchitectureSandbox />
         </div>

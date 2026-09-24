@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, Menu, X, Sparkles, RotateCcw, Award, Search, BookOpen, FlaskConical, Layers } from 'lucide-react';
+import { Volume2, Menu, X, Sparkles, RotateCcw, Award, Search, BookOpen, FlaskConical, Layers, GraduationCap } from 'lucide-react';
 import { playHapticClick } from '../utils/soundEffects';
 import { UI_TRANSLATIONS } from '../data/translations';
 
@@ -13,8 +13,8 @@ interface NavbarProps {
   onResetProgress: () => void;
   onOpenCertificate: () => void;
   onOpenSearch: () => void;
-  currentTab: 'curriculum' | 'rebuild' | 'sandbox';
-  onSelectTab: (tab: 'curriculum' | 'rebuild' | 'sandbox') => void;
+  currentTab: 'path' | 'curriculum' | 'rebuild' | 'sandbox';
+  onSelectTab: (tab: 'path' | 'curriculum' | 'rebuild' | 'sandbox') => void;
   lang: 'en' | 'fr';
   onSelectLang: (lang: 'en' | 'fr') => void;
 }
@@ -67,7 +67,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           <div
-            onClick={() => onSelectTab('curriculum')}
+            onClick={() => onSelectTab('path')}
             className="flex items-center gap-2.5 cursor-pointer"
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white shadow-sm shadow-blue-500/20">
@@ -82,6 +82,20 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Mode Switcher: Curriculum vs Rebuilding Sanad vs Sandbox */}
           <div className="hidden sm:flex items-center rounded-full bg-black/5 p-1 ml-3 border border-black/5">
+            <button
+              onClick={() => {
+                onSelectTab('path');
+                playHapticClick();
+              }}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition ${
+                currentTab === 'path'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-[#6e6e73] hover:text-[#1d1d1f]'
+              }`}
+            >
+              <GraduationCap size={12} />
+              <span>{lang === 'fr' ? 'Parcours soutenance' : 'Defense Path'}</span>
+            </button>
             <button
               onClick={() => {
                 onSelectTab('curriculum');

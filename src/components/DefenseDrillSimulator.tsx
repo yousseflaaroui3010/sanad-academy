@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import confetti from 'canvas-confetti';
+import { AnswerCoach } from './AnswerCoach';
+import { JURY_DRILL_COACH } from '../data/legacyCoach';
 import {
   GraduationCap,
   Award,
@@ -31,9 +33,9 @@ const JURY_QUESTIONS: JuryQuestion[] = [
     question: 'Why didn\'t you just wrap an external cloud assistant API instead of engineering a local dual-store pipeline?',
     options: [
       {
-        text: 'Because cloud models violate Moroccan Law 09-08 and send confidential corporate contracts to third-party servers. Our local dual-store keeps all data inside the private perimeter.',
+        text: 'Because a wrapped assistant gives us no control or proof: SANAD keeps documents, index and database on the organisation’s machine (and can run fully local with Ollama), builds sources in code, and publishes a measured refusal rate with a release gate. Our measured results use Gemini in cloud mode, so we do not claim cloud models are forbidden.',
         isOptimal: true,
-        feedback: 'Excellent defense! You highlighted regulatory privacy, data sovereignty, and zero cloud leakage.',
+        feedback: 'Strong and honest: control of data, code-enforced guarantees, and measurement, without overclaiming about the law or about local mode (which was not measured).',
         approvalDelta: 25
       },
       {
@@ -54,18 +56,18 @@ const JURY_QUESTIONS: JuryQuestion[] = [
     id: 2,
     professor: 'Dr. Bennani',
     department: 'Privacy Law & Regulatory Compliance',
-    question: 'How does Sanad technically guarantee the Right to Be Forgotten under Moroccan Law 09-08 when a workspace is deleted?',
+    question: 'What exactly happens, technically, when a workspace is deleted? Is anything left behind?',
     options: [
       {
         text: 'We mark the user account as inactive in SQLite and hide their files in the frontend UI.',
         isOptimal: false,
-        feedback: 'Regulatory violation! Soft deletes leave personal data stored on disk, violating Law 09-08.',
+        feedback: 'Wrong: a soft delete would leave the index and sections on disk, still searchable by anyone with access.',
         approvalDelta: -20
       },
       {
-        text: 'We enforce ON DELETE CASCADE in SQLite, atomically wipe the parent text directory on disk, and execute an isolated tenant payload purge in Qdrant.',
+        text: 'Deletion is refused while a Sync of that workspace runs; then SANAD drops the workspace’s Qdrant collection and its parent-sections directory, and deletes the SQLite row, whose ON DELETE CASCADE removes documents, syncs, evaluations and conversations. Source files in an external folder are left untouched.',
         isOptimal: true,
-        feedback: 'Outstanding technical precision. Cascades, disk wiping, and vector payload purging provide true atomic erasure.',
+        feedback: 'Precise and faithful to the code (app.py delete_workspace_route, sync.delete_workspace). Note: the report does not claim certified law 09-08 compliance.',
         approvalDelta: 25
       },
       {
@@ -80,10 +82,10 @@ const JURY_QUESTIONS: JuryQuestion[] = [
     id: 3,
     professor: 'Prof. Cherkaoui',
     department: 'AI Evaluation Science & Statistical Rigor',
-    question: 'Why separate 500-character child chunks from 4,000-character parent articles instead of single uniform chunks?',
+    question: 'Why separate 500-character child chunks from larger parent sections (2,000–4,000 characters) instead of single uniform chunks?',
     options: [
       {
-        text: 'Because 500 characters optimize semantic vector precision without diluting coordinates, while 4,000-character parents provide the full legal article context to prevent hallucination.',
+        text: 'Search small, read big: a 500-character child carries one idea, so its vector matches precisely; the parent section (2,000–4,000 characters) gives the writer the full context to answer and cite correctly.',
         isOptimal: true,
         feedback: 'Flawless answer. You solved the central tension of RAG: retrieval precision vs synthesis comprehension.',
         approvalDelta: 25
@@ -115,9 +117,9 @@ const JURY_QUESTIONS: JuryQuestion[] = [
         approvalDelta: -20
       },
       {
-        text: 'Citations are code-enforced: Python runtime constructs the source cards directly from disk blocks, and Gate 2 triggers deterministic honest refusal (NOT_COVERED) if retrieval falls below 0.70.',
+        text: 'Layers in code: an LLM grader must judge the passages relevant (at most 2 rewords, then the graph refuses without asking any model); the writer sees only the retrieved sections or replies NOT_COVERED; sources are built by code from retrieved passages and an answer without sources cannot be constructed; and the judge + G1 gate measure what code cannot guarantee.',
         isOptimal: true,
-        feedback: 'Masterful defense. Code-enforced citations and deterministic honest refusal eliminate hallucination risks.',
+        feedback: 'Accurate. Note there is no similarity threshold (like 0.70) in SANAD: relevance is judged by the grader.',
         approvalDelta: 25
       },
       {
@@ -142,6 +144,7 @@ export const DefenseDrillSimulator: React.FC<DefenseDrillSimulatorProps> = ({
   const [selectedOptionIdx, setSelectedOptionIdx] = useState<number | null>(null);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
+  const [triedCold, setTriedCold] = useState(false);
 
   const q = JURY_QUESTIONS[currentQIdx];
 
@@ -169,6 +172,7 @@ export const DefenseDrillSimulator: React.FC<DefenseDrillSimulatorProps> = ({
       setCurrentQIdx((prev) => prev + 1);
       setSelectedOptionIdx(null);
       setHasAnswered(false);
+      setTriedCold(false);
     } else {
       setIsFinished(true);
     }
@@ -180,6 +184,7 @@ export const DefenseDrillSimulator: React.FC<DefenseDrillSimulatorProps> = ({
     setSelectedOptionIdx(null);
     setHasAnswered(false);
     setIsFinished(false);
+    setTriedCold(false);
   };
 
   return (
@@ -241,7 +246,19 @@ export const DefenseDrillSimulator: React.FC<DefenseDrillSimulatorProps> = ({
             </p>
           </div>
 
+          {/* Answer it yourself first; the scripted responses unlock after one written attempt */}
+          {JURY_DRILL_COACH[q.id] && (
+            <AnswerCoach
+              key={q.id}
+              exercise={JURY_DRILL_COACH[q.id]}
+              label="Answer the jury in your own words first (cold)"
+              compact
+              onGraded={() => setTriedCold(true)}
+            />
+          )}
+
           {/* Defense Response Choices */}
+          {triedCold && (
           <div className="space-y-2.5">
             {q.options.map((opt, idx) => {
               const isSelected = selectedOptionIdx === idx;
@@ -280,6 +297,7 @@ export const DefenseDrillSimulator: React.FC<DefenseDrillSimulatorProps> = ({
               );
             })}
           </div>
+          )}
 
           {/* Feedback & Next Button */}
           {hasAnswered && selectedOptionIdx !== null && (

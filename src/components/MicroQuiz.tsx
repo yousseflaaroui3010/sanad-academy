@@ -2,16 +2,22 @@ import React, { useState } from 'react';
 import confetti from 'canvas-confetti';
 import { CheckCircle2, XCircle, HelpCircle, Sparkles } from 'lucide-react';
 import type { MiniQuiz } from '../data/courseData';
+import { MINI_QUIZ_COACH } from '../data/legacyCoach';
+import { AnswerCoach } from './AnswerCoach';
 
 interface MicroQuizProps {
   quiz: MiniQuiz;
   lang?: 'en' | 'fr';
+  subLessonId?: string;
 }
 
-export const MicroQuiz: React.FC<MicroQuizProps> = ({ quiz, lang = 'en' }) => {
+export const MicroQuiz: React.FC<MicroQuizProps> = ({ quiz, lang = 'en', subLessonId }) => {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const isFr = lang === 'fr';
+  const coach = subLessonId ? MINI_QUIZ_COACH[subLessonId] : undefined;
+  // Recall before recognition: the multiple-choice check unlocks after one written attempt.
+  const [triedCold, setTriedCold] = useState(!coach);
 
   const handleSelect = (index: number) => {
     if (hasSubmitted) return;
@@ -35,6 +41,23 @@ export const MicroQuiz: React.FC<MicroQuizProps> = ({ quiz, lang = 'en' }) => {
   const isCorrect = selectedOption === quiz.correctIndex;
 
   return (
+    <div className="space-y-4">
+      {coach && (
+        <AnswerCoach
+          key={coach.id}
+          exercise={coach}
+          lang={lang}
+          label={isFr ? 'Explique d’abord avec tes mots (à froid)' : 'Explain it first, in your own words (cold)'}
+          onGraded={() => setTriedCold(true)}
+        />
+      )}
+      {!triedCold ? (
+        <p className="text-[11px] text-[#86868b] px-2">
+          {isFr
+            ? 'Le quiz à choix multiple se débloque après une première réponse écrite : se souvenir d’abord, reconnaître ensuite.'
+            : 'The multiple-choice check unlocks after one written attempt: recall first, recognition second.'}
+        </p>
+      ) : (
     <div className="liquid-glass rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
       <div className="flex items-center justify-between border-b border-black/5 pb-3">
         <div className="flex items-center gap-2">
@@ -109,6 +132,8 @@ export const MicroQuiz: React.FC<MicroQuizProps> = ({ quiz, lang = 'en' }) => {
           </div>
           {quiz.explanation}
         </div>
+      )}
+    </div>
       )}
     </div>
   );

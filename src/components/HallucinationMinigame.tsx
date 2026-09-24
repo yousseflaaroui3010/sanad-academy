@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import confetti from 'canvas-confetti';
+import { AnswerCoach } from './AnswerCoach';
+import { HALLUCINATION_COACH } from '../data/legacyCoach';
 import {
   ShieldAlert,
   CheckCircle2,
@@ -238,6 +240,16 @@ export const HallucinationMinigame: React.FC = () => {
           </div>
           <p>{selectedAnswer.reason}</p>
         </div>
+      )}
+
+      {/* Go deeper: explain it the way SANAD's evaluation judge would */}
+      {hasSubmitted && HALLUCINATION_COACH[scenario.id] && (
+        <AnswerCoach
+          key={scenario.id}
+          exercise={HALLUCINATION_COACH[scenario.id]}
+          label="Now think like the evaluation judge (cold)"
+          compact
+        />
       )}
 
       {/* Bottom Controls */}
