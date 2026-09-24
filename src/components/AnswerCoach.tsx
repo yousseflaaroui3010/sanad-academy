@@ -24,9 +24,9 @@ interface CoachState {
 }
 
 const EMPTY: CoachState = { attempts: [], result: null, gate: null };
-const storageKey = (id: number) => `sanad_coach_v1_${id}`;
+const storageKey = (id: number | string) => `sanad_coach_v1_${id}`;
 
-function loadState(id: number): CoachState {
+function loadState(id: number | string): CoachState {
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey(id)) || 'null');
     return saved && Array.isArray(saved.attempts) ? { ...EMPTY, ...saved } : EMPTY;
@@ -49,12 +49,15 @@ const VERDICTS = {
   unsure: { label: 'Correction incertaine', tone: 'border-slate-500 bg-slate-50 text-slate-900' },
 };
 
-export function AnswerCoach({ exerciseId, heading, question, onSkip, skipLabel }: {
-  exerciseId: number;
+export function AnswerCoach({ exerciseId, heading, question, onSkip, skipLabel, feedbackLang, onGraded }: {
+  exerciseId: number | string;
   heading: string;
   question: string;
   onSkip: () => void;
   skipLabel: string;
+  // 'en' asks the server for feedback in plain English (the Defense Path is written in English).
+  feedbackLang?: 'fr' | 'en';
+  onGraded?: (graded: { verdict: CoachResult['verdict']; attempt: number; confidence: number; freshGate: boolean }) => void;
 }) {
   const [state, setState] = useState<CoachState>(() => loadState(exerciseId));
   const [confidence, setConfidence] = useState('');
@@ -81,7 +84,7 @@ export function AnswerCoach({ exerciseId, heading, question, onSkip, skipLabel }
       const response = await fetch('/api/coach/grade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ exerciseId, gateToken: gate?.token, ...body }),
+        body: JSON.stringify({ exerciseId, gateToken: gate?.token, feedbackLang, ...body }),
       });
       const data = await response.json().catch(() => null);
       if (!response.ok || !data) {
@@ -102,6 +105,7 @@ export function AnswerCoach({ exerciseId, heading, question, onSkip, skipLabel }
     const text = answer.trim();
     const graded = await send({ answer: text, confidence: Number(confidence), attempt: attempts.length + 1, previousAttempts: attempts });
     if (!graded) return;
+    onGraded?.({ verdict: graded.verdict, attempt: attempts.length + 1, confidence: Number(confidence), freshGate: Boolean(gate) });
     setConfidence('');
     setPushback('');
     if (graded.freshGate) {

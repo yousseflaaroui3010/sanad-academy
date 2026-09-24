@@ -3,6 +3,7 @@
 // model answer stay on the server. The answer is revealed only on a pass or at attempt 4+.
 import crypto from 'node:crypto';
 import { EXERCISES } from './exercises.js';
+import { PATH_EXERCISES } from './pathExercises.js';
 
 const MODELS = [process.env.GEMINI_MODEL, 'gemini-3.6-flash', 'gemini-2.5-flash'].filter(Boolean);
 const REVEAL_AT_ATTEMPT = 4;
@@ -169,8 +170,10 @@ export function coachConfigured() {
 export async function grade(payload) {
   if (!coachConfigured()) throw new CoachError(503, 'coach_not_configured');
 
-  const exerciseId = Number(payload?.exerciseId);
-  const exercise = EXERCISES[exerciseId];
+  // Course lessons use slide numbers; Defense Path gates use string ids such as "g10-2".
+  const rawId = payload?.exerciseId;
+  const exerciseId = typeof rawId === 'string' && Object.hasOwn(PATH_EXERCISES, rawId) ? rawId : Number(rawId);
+  const exercise = typeof exerciseId === 'string' ? PATH_EXERCISES[exerciseId] : EXERCISES[exerciseId];
   if (!exercise) throw new CoachError(400, 'unknown_exercise');
 
   const answer = text(payload.answer, MAX_ANSWER_CHARS).trim();
@@ -188,7 +191,11 @@ export async function grade(payload) {
   const gate = payload.gateToken ? openGate(payload.gateToken, exerciseId) : null;
 
   const started = Date.now();
-  const { reply, model } = await callGemini(SYSTEM_PROMPT, buildUserMessage(exercise, gate, { answer, confidence, attempt, previousAttempts, pushback }));
+  // The Defense Path is written in English for learners who asked for it; its feedback follows.
+  const system = payload.feedbackLang === 'en'
+    ? `${SYSTEM_PROMPT}\n\nLANGUE : rédige toute la correction en anglais simple (phrases courtes, vocabulaire de débutant), pas en français. Les clés JSON restent identiques.`
+    : SYSTEM_PROMPT;
+  const { reply, model } = await callGemini(system, buildUserMessage(exercise, gate, { answer, confidence, attempt, previousAttempts, pushback }));
   const result = parseVerdict(reply);
 
   // Enforce the hint ladder here too: the model is asked to hide the answer, but the server

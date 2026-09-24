@@ -1,7 +1,11 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { FirstLesson } from './components/FirstLesson';
 import { CourseLesson } from './components/CourseLesson';
 import { lessons } from './data/lessons';
+
+// The English Defense Path is a second, independent section, loaded only when opened.
+const DefensePathView = lazy(() => import('./components/DefensePathView').then((m) => ({ default: m.DefensePathView })));
+type Section = 'course' | 'path';
 
 const total = lessons.length + 1;
 
@@ -17,6 +21,23 @@ function storedIndex(): number {
 export default function App() {
   const [current, setCurrent] = useState(storedIndex);
   const [companion, setCompanion] = useState(false);
+  const [section, setSection] = useState<Section>(() => {
+    try {
+      return localStorage.getItem('sanad_academy_section') === 'path' ? 'path' : 'course';
+    } catch {
+      return 'course';
+    }
+  });
+
+  const chooseSection = (next: Section) => {
+    setSection(next);
+    try {
+      localStorage.setItem('sanad_academy_section', next);
+    } catch {
+      // The choice simply resets on the next visit.
+    }
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  };
   const [skipped, setSkipped] = useState<number[]>(() => {
     try {
       const saved: unknown = JSON.parse(localStorage.getItem('sanad_academy_skipped_v2') || '[]');
@@ -53,12 +74,24 @@ export default function App() {
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
           <span className="text-lg font-bold tracking-tight">Sanad <span className="font-normal text-slate-600">Académie</span></span>
-          <div className="flex items-center gap-3">
+          <div role="group" aria-label="Section" className="flex rounded-lg border border-slate-300 p-0.5">
+            {([['course', 'Cours (FR)'], ['path', 'Defense Path (EN)']] as const).map(([value, label]) => (
+              <button key={value} type="button" aria-pressed={section === value} onClick={() => chooseSection(value)} className={`rounded-md px-3 py-1.5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 ${section === value ? 'bg-blue-700 text-white' : 'text-slate-700 hover:bg-slate-100'}`}>{label}</button>
+            ))}
+          </div>
+          {section === 'course' && <div className="flex items-center gap-3">
             <button type="button" aria-pressed={companion} onClick={() => setCompanion((value) => !value)} className="rounded-lg border border-blue-700 px-3 py-1.5 text-sm font-semibold text-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">{companion ? 'Voir toute la leçon' : 'Mode côte à côte'}</button>
             <span className="text-sm font-medium text-slate-600">{current + 1}/{total}</span>
-          </div>
+          </div>}
         </div>
       </header>
+      {section === 'path' ? (
+        <main id="contenu" className="px-4 py-6 sm:px-6" lang="en">
+          <Suspense fallback={<p className="mx-auto max-w-5xl text-slate-600">Loading the Defense Path…</p>}>
+            <DefensePathView lang="en" />
+          </Suspense>
+        </main>
+      ) : <>
       <nav aria-label="Leçons de la soutenance" className="mx-auto max-w-5xl px-4 pt-5 sm:px-6">
         <details className="rounded-xl border border-slate-200 bg-white p-4">
           <summary className="cursor-pointer font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">Choisir une leçon · les exercices sont facultatifs</summary>
@@ -78,6 +111,7 @@ export default function App() {
           ? <FirstLesson onSkip={skip} companion={companion} />
           : <CourseLesson lesson={lessons[current - 1]} onSkip={skip} onPrevious={() => navigate(current - 1)} hasNext={current < total - 1} companion={companion} />}
       </main>
+      </>}
     </div>
   );
 }

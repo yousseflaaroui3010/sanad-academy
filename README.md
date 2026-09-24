@@ -31,3 +31,7 @@ automatique avec GitHub.
 
 Les anciens cours, le laboratoire, l'accès Gemini et les narrations audio ont
 été retirés. Le nouveau parcours n'utilise ni clé API ni service de modèle.
+
+## Defense Path (English)
+
+The header switch opens a second section: 19 lessons from the big picture to the code, each with the technical words explained first, an everyday story, a diagram, and gates. Gate answers are graded by the same server-side coach (`POST /api/coach/grade`, `GEMINI_API_KEY`); their hidden model answers live in `coach/pathExercises.js` and `npm run build` checks they match the questions in `src/data/defensePath.ts`. Progress for this section is kept in the browser.
